@@ -12,6 +12,12 @@
                 "prefix": "10.0.10.0",
                 "subnet": "/24"
             },
+            "vrfs": {
+                "Arsium": {
+                    "rd": "3215:102",
+                    "route_target": "3215:102"
+                }
+            },
             "routers": {
                 "PE1": {
                     "interfaces": {
@@ -25,6 +31,7 @@
                             "mask": "/29"
                         },
                         "Gigabitethernet2/0": {
+                            "vrf": "Arsium",
                             "ipv4": "192.168.1.1",
                             "ngbr": "CE",
                             "network": {
@@ -103,6 +110,7 @@
                             "mask": "/29"
                         },
                         "Gigabitethernet2/0": {
+                            "vrf": "Arsium",
                             "ipv4": "192.168.2.1",
                             "ngbr": "CE1",
                             "network": {
@@ -125,21 +133,26 @@
                 "3215": "provider"
             },
             "ldp": false,
-            "network": {
-                "prefix": "192.168.67.0",
-                "subnet": "/24"
-            },
             "routers": {
                 "CE": {
                     "interfaces": {
                         "Gigabitethernet1/0": {
                             "ipv4": "192.168.1.2",
                             "ngbr": "PE1",
+                            "allowas_in": true,
                             "network": {
                                 "prefix": "192.168.1.0",
                                 "subnet": "/30"
                             },
                             "mask": "/30"
+                        },
+                        "Gigabitethernet2/0": {
+                            "ipv4": "192.168.67.254",
+                            "network": {
+                                "prefix": "192.168.67.0",
+                                "subnet": "/24"
+                            },
+                            "mask": "/24"
                         }
                     }
                 },
@@ -148,11 +161,20 @@
                         "Gigabitethernet1/0": {
                             "ipv4": "192.168.2.2",
                             "ngbr": "PE2",
+                            "allowas_in": true,
                             "network": {
                                 "prefix": "192.168.2.0",
                                 "subnet": "/30"
                             },
                             "mask": "/30"
+                        },
+                        "Gigabitethernet2/0": {
+                            "ipv4": "192.168.69.254",
+                            "network": {
+                                "prefix": "192.168.69.0",
+                                "subnet": "/24"
+                            },
+                            "mask": "/24"
                         }
                     }
                 }

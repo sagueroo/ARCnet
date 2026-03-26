@@ -41,10 +41,24 @@ def main():
     with open('intent.json', 'r') as f:
         data = json.load(f)
 
-    loopback_counter = 1
-    loopback_cnt2 = 1
-    loopback_cnt3 = 1
-
+    # 1. PRE-CALCUL DES LOOPBACKS
+    # Necessaire pour connaitre les IP iBGP des voisins avant meme de generer leur config
+    loopbacks = {}
+    lb_c1, lb_c2, lb_c3 = 1, 1, 1
+    for as_num, as_info in data['AS'].items():
+        for router_name, router_info in as_info['routers'].items():
+            for intf_name in router_info.get('interfaces', {}):
+                if "Loopback" in intf_name:
+                    loopbacks[router_name] = f"1.{lb_c3}.{lb_c2}.{lb_c1}"
+                    if lb_c1 < 255: 
+                        lb_c1 += 1
+                    elif lb_c1 == 255 and lb_c2 < 255: 
+                        lb_c2 += 1
+                        lb_c1 = 1
+                    elif lb_c1 == 255 and lb_c2 == 255: 
+                        lb_c3 += 1
+                        lb_c1 = 1
+                        lb_c2 = 1
 
     print("Generation et injection des configurations...")
     
@@ -64,28 +78,37 @@ def main():
                 "!"
             ])
 
+            # 2. DEFINITION DES VRF (Seulement pour les PE)
+            if is_provider and 'vrfs' in as_info:
+                for vrf_name, vrf_data in as_info['vrfs'].items():
+                    config.extend([
+                        f"vrf definition {vrf_name}",
+                        f" rd {vrf_data['rd']}",
+                        " !",
+                        " address-family ipv4",
+                        f"  route-target export {vrf_data['route_target']}",
+                        f"  route-target import {vrf_data['route_target']}",
+                        " exit-address-family",
+                        "!"
+                    ])
+
             interfaces = router_info.get('interfaces', {})
+            is_pe = any('vrf' in intf for intf in interfaces.values())
             
+            # 3. CONFIGURATION DES INTERFACES
             for intf_name, intf_data in interfaces.items():
                 config.append(f"interface {intf_name}")
                 
+                # Affectation VRF (A FAIRE ABSOLUMENT AVANT L'IP)
+                if intf_data.get('vrf'):
+                    config.append(f" vrf forwarding {intf_data['vrf']}")
+                
                 if "Loopback" in intf_name:
-                    ip = f"1.{loopback_cnt3}.{loopback_cnt2}.{loopback_counter}"
+                    ip = loopbacks.get(router_name, "1.1.1.1")
                     mask = cidr_to_netmask(intf_data['mask'])
                     config.append(f" ip address {ip} {mask}")
                     if is_provider:
-                        config.append(f" ip ospf 1 area 0")
-                    if loopback_counter < 255:
-                        loopback_counter += 1
-                    if loopback_counter == 255 and loopback_cnt2 < 255:
-                        loopback_cnt2 += 1
-                        loopback_counter = 1
-                    if loopback_counter == 255 and loopback_cnt2 == 255:
-                        loopback_cnt3 +=1
-                        loopback_counter = 1
-                        loopback_cnt2 = 1
-                    if loopback_cnt3 == 255:
-                        return "too much loopbacks"
+                        config.append(" ip ospf 1 area 0")
                 
                 elif intf_data.get('ipv4'):
                     ip = intf_data['ipv4']
@@ -100,30 +123,89 @@ def main():
                 config.append(" no shutdown")
                 config.append("!")
 
+            # 4. ROUTAGE PROVIDER (OSPF + iBGP VPNv4 + eBGP VRF)
             if is_provider:
-                router_id = loopback_counter - 1
+                router_id = loopbacks.get(router_name, "1.1.1.1")
                 config.extend([
                     "router ospf 1",
-                    f" router-id {router_id}.{router_id}.{router_id}.{router_id}",
+                    f" router-id {router_id}",
                     "!"
                 ])
+                
+                config.extend([
+                    f"router bgp {as_num}",
+                    f" bgp router-id {router_id}",
+                    " bgp log-neighbor-changes",
+                ])
+                
+                if is_pe:
+                    # Session iBGP VPNv4 avec les autres PE
+                    for other_router, other_lb in loopbacks.items():
+                        if other_router != router_name and other_router.startswith("PE"):
+                            config.extend([
+                                f" neighbor {other_lb} remote-as {as_num}",
+                                f" neighbor {other_lb} update-source Loopback0",
+                                " !",
+                                " address-family vpnv4",
+                                f"  neighbor {other_lb} activate",
+                                f"  neighbor {other_lb} send-community extended",
+                                " exit-address-family",
+                                " !"
+                            ])
+                    
+                    # Session eBGP avec le CE dans la VRF
+                    for intf_name, intf_data in interfaces.items():
+                        if 'vrf' in intf_data:
+                            vrf_name = intf_data['vrf']
+                            # Deduit l'IP du CE (ex: .1 devient .2)
+                            ip_parts = intf_data['ipv4'].split('.')
+                            ip_parts[-1] = str(int(ip_parts[-1]) + 1)
+                            ce_ip = ".".join(ip_parts)
+                            ce_as = list(as_info.get('ngbr_AS', {}).keys())[0]
+                            
+                            config.extend([
+                                f" address-family ipv4 vrf {vrf_name}",
+                                f"  neighbor {ce_ip} remote-as {ce_as}",
+                                f"  neighbor {ce_ip} activate",
+                                " exit-address-family",
+                                " !"
+                            ])
+
+            # 5. ROUTAGE CUSTOMER (eBGP global + allowas-in)
             else:
                 config.extend([
                     f"router bgp {as_num}",
-                    " bgp log-neighbor-changes"
+                    " bgp log-neighbor-changes",
+                    " !",
+                    " address-family ipv4"
                 ])
-                
-                cust_net = as_info.get('network', {}).get('prefix')
-                if cust_net:
-                    config.append(f" network {cust_net}")
                 
                 pe_as = list(as_info.get('ngbr_AS', {}).keys())[0]
                 
                 for intf_name, intf_data in interfaces.items():
+                    # Annonce des reseaux LAN
+                    if "network" in intf_data and "CE" not in intf_data.get('ngbr', '') and "PE" not in intf_data.get('ngbr', ''):
+                        prefix = intf_data['network']['prefix']
+                        mask = cidr_to_netmask(intf_data['mask'])
+                        config.append(f"  network {prefix} mask {mask}")
+                    
+                    # Voisinage avec le PE
                     if "PE" in intf_data.get('ngbr', ''):
-                        pe_ip = intf_data['ipv4'][:-1] + "1" 
-                        config.append(f" neighbor {pe_ip} remote-as {pe_as}")
-                config.append("!")
+                        # Deduit l'IP du PE (ex: .2 devient .1)
+                        ip_parts = intf_data['ipv4'].split('.')
+                        ip_parts[-1] = str(int(ip_parts[-1]) - 1)
+                        pe_ip = ".".join(ip_parts)
+                        
+                        config.append(f"  neighbor {pe_ip} remote-as {pe_as}")
+                        config.append(f"  neighbor {pe_ip} activate")
+                        
+                        if intf_data.get('allowas_in'):
+                            config.append(f"  neighbor {pe_ip} allowas-in")
+                
+                config.extend([
+                    " exit-address-family",
+                    "!"
+                ])
 
             config.extend([
                 "line con 0",
@@ -134,6 +216,7 @@ def main():
                 "end"
             ])
 
+            # 6. INJECTION GNS3
             if router_name in gns3_mapping:
                 uuid = gns3_mapping[router_name]
                 config_dir = os.path.join(GNS3_PROJECT_DIR, 'project-files', 'dynamips', uuid, 'configs')
