@@ -42,7 +42,6 @@ def main():
         data = json.load(f)
 
     # 1. PRE-CALCUL DES LOOPBACKS
-    # Necessaire pour connaitre les IP iBGP des voisins avant meme de generer leur config
     loopbacks = {}
     lb_c1, lb_c2, lb_c3 = 1, 1, 1
     for as_num, as_info in data['AS'].items():
@@ -99,7 +98,7 @@ def main():
             for intf_name, intf_data in interfaces.items():
                 config.append(f"interface {intf_name}")
                 
-                # Affectation VRF (A FAIRE ABSOLUMENT AVANT L'IP)
+                # Affectation VRF
                 if intf_data.get('vrf'):
                     config.append(f" vrf forwarding {intf_data['vrf']}")
                 
@@ -139,7 +138,7 @@ def main():
                 ])
                 
                 if is_pe:
-                    # Session iBGP VPNv4 avec les autres PE
+                    # Session iBGP VPNv4
                     for other_router, other_lb in loopbacks.items():
                         if other_router != router_name and other_router.startswith("PE"):
                             config.extend([
@@ -153,16 +152,23 @@ def main():
                                 " !"
                             ])
                     
-                    # Session eBGP avec le CE dans la VRF
+                    # Session eBGP avec les CE dans les VRF
                     for intf_name, intf_data in interfaces.items():
                         if 'vrf' in intf_data:
                             vrf_name = intf_data['vrf']
-                            # Deduit l'IP du CE (ex: .1 devient .2)
                             ip_parts = intf_data['ipv4'].split('.')
                             ip_parts[-1] = str(int(ip_parts[-1]) + 1)
                             ce_ip = ".".join(ip_parts)
-                            ce_as = list(as_info.get('ngbr_AS', {}).keys())[0]
                             
+                            # -- RECHERCHE DYNAMIQUE DU NUMERO D'AS DU CLIENT --
+                            ce_name = intf_data.get('ngbr', '')
+                            ce_as = "102" # Fallback par defaut
+                            for test_as, test_info in data['AS'].items():
+                                if ce_name in test_info.get('routers', {}):
+                                    ce_as = test_as
+                                    break
+                            # --------------------------------------------------
+
                             config.extend([
                                 f" address-family ipv4 vrf {vrf_name}",
                                 f"  neighbor {ce_ip} remote-as {ce_as}",
@@ -183,15 +189,12 @@ def main():
                 pe_as = list(as_info.get('ngbr_AS', {}).keys())[0]
                 
                 for intf_name, intf_data in interfaces.items():
-                    # Annonce des reseaux LAN
                     if "network" in intf_data and "CE" not in intf_data.get('ngbr', '') and "PE" not in intf_data.get('ngbr', ''):
                         prefix = intf_data['network']['prefix']
                         mask = cidr_to_netmask(intf_data['mask'])
                         config.append(f"  network {prefix} mask {mask}")
                     
-                    # Voisinage avec le PE
                     if "PE" in intf_data.get('ngbr', ''):
-                        # Deduit l'IP du PE (ex: .2 devient .1)
                         ip_parts = intf_data['ipv4'].split('.')
                         ip_parts[-1] = str(int(ip_parts[-1]) - 1)
                         pe_ip = ".".join(ip_parts)

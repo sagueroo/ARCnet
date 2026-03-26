@@ -6,7 +6,8 @@
             "LoopBackStart": "1.1.1.1",
             "LoopBackEnd": "1.255.255.255",
             "ngbr_AS": {
-                "102": "customer"
+                "102": "customer",
+                "25117": "customer"
             },
             "network": {
                 "prefix": "10.0.10.0",
@@ -16,6 +17,10 @@
                 "Arsium": {
                     "rd": "3215:102",
                     "route_target": "3215:102"
+                },
+                "EuroInfo": {
+                    "rd": "3215:25117",
+                    "route_target": "3215:25117"
                 }
             },
             "routers": {
@@ -34,6 +39,16 @@
                             "vrf": "Arsium",
                             "ipv4": "192.168.1.1",
                             "ngbr": "CE",
+                            "network": {
+                                "prefix": "192.168.1.0",
+                                "subnet": "/30"
+                            },
+                            "mask": "/30"
+                        },
+                        "Gigabitethernet3/0": {
+                            "vrf": "EuroInfo",
+                            "ipv4": "192.168.1.1",
+                            "ngbr": "CE2",
                             "network": {
                                 "prefix": "192.168.1.0",
                                 "subnet": "/30"
@@ -119,6 +134,16 @@
                             },
                             "mask": "/30"
                         },
+                        "Gigabitethernet3/0": {
+                            "vrf": "EuroInfo",
+                            "ipv4": "192.168.2.1",
+                            "ngbr": "CE3",
+                            "network": {
+                                "prefix": "192.168.2.0",
+                                "subnet": "/30"
+                            },
+                            "mask": "/30"
+                        },
                         "Loopback0": {
                             "ipv4": "",
                             "mask": "/32"
@@ -157,6 +182,59 @@
                     }
                 },
                 "CE1": {
+                    "interfaces": {
+                        "Gigabitethernet1/0": {
+                            "ipv4": "192.168.2.2",
+                            "ngbr": "PE2",
+                            "allowas_in": true,
+                            "network": {
+                                "prefix": "192.168.2.0",
+                                "subnet": "/30"
+                            },
+                            "mask": "/30"
+                        },
+                        "Gigabitethernet2/0": {
+                            "ipv4": "192.168.69.254",
+                            "network": {
+                                "prefix": "192.168.69.0",
+                                "subnet": "/24"
+                            },
+                            "mask": "/24"
+                        }
+                    }
+                }
+            }
+        },
+        "25117": {
+            "igp": "OSPF",
+            "ngbr_AS": {
+                "3215": "provider"
+            },
+            "ldp": false,
+            "routers": {
+                "CE2": {
+                    "interfaces": {
+                        "Gigabitethernet1/0": {
+                            "ipv4": "192.168.1.2",
+                            "ngbr": "PE1",
+                            "allowas_in": true,
+                            "network": {
+                                "prefix": "192.168.1.0",
+                                "subnet": "/30"
+                            },
+                            "mask": "/30"
+                        },
+                        "Gigabitethernet2/0": {
+                            "ipv4": "192.168.67.254",
+                            "network": {
+                                "prefix": "192.168.67.0",
+                                "subnet": "/24"
+                            },
+                            "mask": "/24"
+                        }
+                    }
+                },
+                "CE3": {
                     "interfaces": {
                         "Gigabitethernet1/0": {
                             "ipv4": "192.168.2.2",
