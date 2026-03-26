@@ -208,3 +208,4 @@ __marimo__/
 
 #Image Cisco
 GNS/project-files/dynamips
+*.cfg

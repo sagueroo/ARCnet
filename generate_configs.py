@@ -15,6 +15,9 @@ def main():
 
     # Compteur pour générer automatiquement les Loopbacks (1.1.1.1, 2.2.2.2, etc.)
     loopback_counter = 1
+    loopback_cnt2 = 1
+    loopback_cnt3 = 1
+
 
     # 2. Parcourir les AS
     for as_num, as_info in data['AS'].items():
@@ -41,12 +44,19 @@ def main():
                 
                 # Gestion dynamique des Loopbacks
                 if "Loopback" in intf_name:
-                    ip = f"{loopback_counter}.{loopback_counter}.{loopback_counter}.{loopback_counter}"
+                    ip = f"1.{loopback_cnt3}.{loopback_cnt2}.{loopback_counter}"
                     mask = cidr_to_netmask(intf_data['mask'])
                     config.append(f" ip address {ip} {mask}")
                     if is_provider:
                         config.append(f" ip ospf 1 area 0")
-                    loopback_counter += 1
+                    if loopback_counter < 255:
+                        loopback_counter += 1
+                    if loopback_counter == 255 and loopback_cnt2 < 255:
+                        loopback_cnt2 += 1
+                    if loopback_counter == 255 and loopback_cnt2 == 255:
+                        loopback_cnt3 +=1
+                    if loopback_cnt3 == 255:
+                        return "too much loopbacks"
                 
                 # Gestion des interfaces physiques
                 elif intf_data.get('ipv4'):
