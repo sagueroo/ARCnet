@@ -1,0 +1,162 @@
+{
+    "AS": {
+        "3215": {
+            "igp": "OSPF",
+            "ldp": true,
+            "LoopBackStart": "1.1.1.1",
+            "LoopBackEnd": "1.255.255.255",
+            "ngbr_AS": {
+                "102": "customer"
+            },
+            "network": {
+                "prefix": "10.0.10.0",
+                "subnet": "/24"
+            },
+            "routers": {
+                "PE1": {
+                    "interfaces": {
+                        "Gigabitethernet1/0": {
+                            "ipv4": "10.0.10.1",
+                            "ngbr": "PC1",
+                            "network": {
+                                "prefix": "10.0.10.0",
+                                "subnet": "/29"
+                            },
+                            "mask": "/29"
+                        },
+                        "Gigabitethernet2/0": {
+                            "ipv4": "192.168.1.1",
+                            "ngbr": "CE",
+                            "network": {
+                                "prefix": "192.168.1.0",
+                                "subnet": "/30"
+                            },
+                            "mask": "/30"
+                        },
+                        "Loopback0": {
+                            "ipv4": "",
+                            "mask": "/32"
+                        }
+                    }
+                },
+                "PC1": {
+                    "interfaces": {
+                        "Gigabitethernet1/0": {
+                            "ipv4": "10.0.10.2",
+                            "ngbr": "PE1",
+                            "network": {
+                                "prefix": "10.0.10.0",
+                                "subnet": "/29"
+                            },
+                            "mask": "/29"
+                        },
+                        "Gigabitethernet2/0": {
+                            "ipv4": "10.0.10.9",
+                            "ngbr": "PC2",
+                            "network": {
+                                "prefix": "10.0.10.8",
+                                "subnet": "/29"
+                            },
+                            "mask": "/29"
+                        },
+                        "Loopback0": {
+                            "ipv4": "",
+                            "mask": "/32"
+                        }
+                    }
+                },
+                "PC2": {
+                    "interfaces": {
+                        "Gigabitethernet1/0": {
+                            "ipv4": "10.0.10.10",
+                            "ngbr": "PC1",
+                            "network": {
+                                "prefix": "10.0.10.8",
+                                "subnet": "/29"
+                            },
+                            "mask": "/29"
+                        },
+                        "Gigabitethernet2/0": {
+                            "ipv4": "10.0.10.17",
+                            "ngbr": "PE2",
+                            "network": {
+                                "prefix": "10.0.10.16",
+                                "subnet": "/29"
+                            },
+                            "mask": "/29"
+                        },
+                        "Loopback0": {
+                            "ipv4": "",
+                            "mask": "/32"
+                        }
+                    }
+                },
+                "PE2": {
+                    "interfaces": {
+                        "Gigabitethernet1/0": {
+                            "ipv4": "10.0.10.18",
+                            "ngbr": "PC2",
+                            "network": {
+                                "prefix": "10.0.10.16",
+                                "subnet": "/29"
+                            },
+                            "mask": "/29"
+                        },
+                        "Gigabitethernet2/0": {
+                            "ipv4": "192.168.2.1",
+                            "ngbr": "CE1",
+                            "network": {
+                                "prefix": "192.168.2.0",
+                                "subnet": "/30"
+                            },
+                            "mask": "/30"
+                        },
+                        "Loopback0": {
+                            "ipv4": "",
+                            "mask": "/32"
+                        }
+                    }
+                }
+            }
+        },
+        "102": {
+            "igp": "OSPF",
+            "ngbr_AS": {
+                "3215": "provider"
+            },
+            "ldp": false,
+            "network": {
+                "prefix": "192.168.67.0",
+                "subnet": "/24"
+            },
+            "routers": {
+                "CE": {
+                    "interfaces": {
+                        "Gigabitethernet1/0": {
+                            "ipv4": "192.168.1.2",
+                            "ngbr": "PE1",
+                            "network": {
+                                "prefix": "192.168.1.0",
+                                "subnet": "/30"
+                            },
+                            "mask": "/30"
+                        }
+                    }
+                },
+                "CE1": {
+                    "interfaces": {
+                        "Gigabitethernet1/0": {
+                            "ipv4": "192.168.2.2",
+                            "ngbr": "PE2",
+                            "network": {
+                                "prefix": "192.168.2.0",
+                                "subnet": "/30"
+                            },
+                            "mask": "/30"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
