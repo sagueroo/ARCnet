@@ -63,6 +63,7 @@ def main():
     
     for as_num, as_info in data['AS'].items():
         is_provider = as_info.get('ldp', False)
+        igp = as_info.get('igp', 'OSPF')
         
         for router_name, router_info in as_info['routers'].items():
             config = []
@@ -106,7 +107,7 @@ def main():
                     ip = loopbacks.get(router_name, "1.1.1.1")
                     mask = cidr_to_netmask(intf_data['mask'])
                     config.append(f" ip address {ip} {mask}")
-                    if is_provider:
+                    if is_provider and igp == "OSPF":
                         config.append(" ip ospf 1 area 0")
                 
                 elif intf_data.get('ipv4'):
@@ -115,9 +116,14 @@ def main():
                     config.append(f" ip address {ip} {mask}")
                     config.append(" negotiation auto")
                     
-                    if is_provider and "CE" not in intf_data.get('ngbr', ''):
+                    if is_provider and "CE" not in intf_data.get('ngbr', '') and igp == "OSPF":
                         config.append(" ip ospf 1 area 0")
                         config.append(" mpls ip")
+                    elif is_provider and "CE" not in intf_data.get('ngbr', '') and igp == "RIP":
+                        config.append(" mpls ip")
+                    elif "PE" not in intf_data.get('ngbr', '') and igp=="OSPF":
+                        config.append(" ip ospf 1 area 0")
+
                 
                 config.append(" no shutdown")
                 config.append("!")
@@ -125,12 +131,23 @@ def main():
             # 4. ROUTAGE PROVIDER (OSPF + iBGP VPNv4 + eBGP VRF)
             if is_provider:
                 router_id = loopbacks.get(router_name, "1.1.1.1")
-                config.extend([
-                    "router ospf 1",
-                    f" router-id {router_id}",
-                    "!"
-                ])
-                
+                if igp=="OSPF":
+                    config.extend([
+                        "router ospf 1",
+                        f" router-id {router_id}",
+                        "!"
+                    ])
+                elif igp=="RIP":
+                    config.extend([
+                        "router rip"
+                        " version 2"
+                    ])
+                    for intf_name, intf_data in interfaces.items():
+                        if "CE" not in intf_data.get('ngbr', ''):
+                            config.extend([
+                                f" network {intf_data['network']['prefix']}"
+                            ])
+                    config.append("!")
                 config.extend([
                     f"router bgp {as_num}",
                     f" bgp router-id {router_id}",
@@ -179,6 +196,23 @@ def main():
 
             # 5. ROUTAGE CUSTOMER (eBGP global + allowas-in)
             else:
+                if igp=="OSPF":
+                    config.extend([
+                        "router ospf 1",
+                        f" router-id {router_id}",
+                        "!"
+                    ])
+                elif igp=="RIP":
+                    config.extend([
+                        "router rip\n"
+                        " version 2"
+                    ])
+                    for intf_name, intf_data in interfaces.items():
+                        if "PE" not in intf_data.get('ngbr', ''):
+                            config.extend([
+                                f" network {intf_data['network']['prefix']}"
+                            ])
+                    config.append("!")
                 config.extend([
                     f"router bgp {as_num}",
                     " bgp log-neighbor-changes",
@@ -193,7 +227,7 @@ def main():
                         prefix = intf_data['network']['prefix']
                         mask = cidr_to_netmask(intf_data['mask'])
                         config.append(f"  network {prefix} mask {mask}")
-                    
+
                     if "PE" in intf_data.get('ngbr', ''):
                         ip_parts = intf_data['ipv4'].split('.')
                         ip_parts[-1] = str(int(ip_parts[-1]) - 1)
