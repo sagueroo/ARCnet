@@ -4,7 +4,7 @@ import os
 import telnetlib
 import time
 
-GNS3_PROJECT_DIR = r"./TEST_SCRIPT" # Adapte ton chemin si besoin
+GNS3_PROJECT_DIR = r"./GNS" # Adapte ton chemin si besoin
 HOST = "127.0.0.1"
 
 def cidr_to_netmask(cidr):
