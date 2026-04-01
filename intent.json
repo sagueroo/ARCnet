@@ -7,7 +7,8 @@
             "LoopBackEnd": "1.255.255.255",
             "ngbr_AS": {
                 "102": "customer",
-                "25117": "customer"
+                "25117": "customer",
+                "206897": "customer"
             },
             "network": {
                 "prefix": "10.0.10.0",
@@ -16,244 +17,116 @@
             "vrfs": {
                 "Arsium": {
                     "rd": "3215:102",
-                    "route_target": "3215:102"
+                    "rt_export": ["3215:102"],
+                    "rt_import": ["3215:102", "3215:206897"]
                 },
                 "EuroInfo": {
                     "rd": "3215:25117",
-                    "route_target": "3215:25117"
+                    "rt_export": ["3215:25117"],
+                    "rt_import": ["3215:25117", "3215:206897"]
+                },
+                "Shared": {
+                    "rd": "3215:206897",
+                    "rt_export": ["3215:206897"],
+                    "rt_import": ["3215:206897", "3215:102", "3215:25117"]
                 }
             },
             "routers": {
                 "PE1": {
                     "interfaces": {
-                        "Gigabitethernet1/0": {
-                            "ipv4": "10.0.10.1",
-                            "ngbr": "PC1",
-                            "network": {
-                                "prefix": "10.0.10.0",
-                                "subnet": "/29"
-                            },
-                            "mask": "/29"
-                        },
-                        "Gigabitethernet2/0": {
-                            "vrf": "Arsium",
-                            "ipv4": "192.168.1.1",
-                            "ngbr": "CE",
-                            "network": {
-                                "prefix": "192.168.1.0",
-                                "subnet": "/30"
-                            },
-                            "mask": "/30"
-                        },
-                        "Gigabitethernet3/0": {
-                            "vrf": "EuroInfo",
-                            "ipv4": "192.168.1.1",
-                            "ngbr": "CE2",
-                            "network": {
-                                "prefix": "192.168.1.0",
-                                "subnet": "/30"
-                            },
-                            "mask": "/30"
-                        },
-                        "Loopback0": {
-                            "ipv4": "",
-                            "mask": "/32"
-                        }
+                        "Gigabitethernet1/0": { "ipv4": "10.0.10.1", "ngbr": "PC1", "network": { "prefix": "10.0.10.0", "subnet": "/29" }, "mask": "/29" },
+                        "Gigabitethernet2/0": { "vrf": "Arsium", "ipv4": "192.168.1.1", "ngbr": "CE", "network": { "prefix": "192.168.1.0", "subnet": "/30" }, "mask": "/30" },
+                        "Gigabitethernet3/0": { "vrf": "EuroInfo", "ipv4": "192.168.1.1", "ngbr": "CE2", "network": { "prefix": "192.168.1.0", "subnet": "/30" }, "mask": "/30" },
+                        "Gigabitethernet4/0": { "vrf": "Shared", "ipv4": "172.16.1.1", "ngbr": "CE4", "network": { "prefix": "172.16.1.0", "subnet": "/30" }, "mask": "/30" },
+                        "Loopback0": { "ipv4": "", "mask": "/32" }
                     }
                 },
                 "PC1": {
                     "interfaces": {
-                        "Gigabitethernet1/0": {
-                            "ipv4": "10.0.10.2",
-                            "ngbr": "PE1",
-                            "network": {
-                                "prefix": "10.0.10.0",
-                                "subnet": "/29"
-                            },
-                            "mask": "/29"
-                        },
-                        "Gigabitethernet2/0": {
-                            "ipv4": "10.0.10.9",
-                            "ngbr": "PC2",
-                            "network": {
-                                "prefix": "10.0.10.8",
-                                "subnet": "/29"
-                            },
-                            "mask": "/29"
-                        },
-                        "Loopback0": {
-                            "ipv4": "",
-                            "mask": "/32"
-                        }
+                        "Gigabitethernet1/0": { "ipv4": "10.0.10.2", "ngbr": "PE1", "network": { "prefix": "10.0.10.0", "subnet": "/29" }, "mask": "/29" },
+                        "Gigabitethernet2/0": { "ipv4": "10.0.10.9", "ngbr": "PC2", "network": { "prefix": "10.0.10.8", "subnet": "/29" }, "mask": "/29" },
+                        "Loopback0": { "ipv4": "", "mask": "/32" }
                     }
                 },
                 "PC2": {
                     "interfaces": {
-                        "Gigabitethernet1/0": {
-                            "ipv4": "10.0.10.10",
-                            "ngbr": "PC1",
-                            "network": {
-                                "prefix": "10.0.10.8",
-                                "subnet": "/29"
-                            },
-                            "mask": "/29"
-                        },
-                        "Gigabitethernet2/0": {
-                            "ipv4": "10.0.10.17",
-                            "ngbr": "PE2",
-                            "network": {
-                                "prefix": "10.0.10.16",
-                                "subnet": "/29"
-                            },
-                            "mask": "/29"
-                        },
-                        "Loopback0": {
-                            "ipv4": "",
-                            "mask": "/32"
-                        }
+                        "Gigabitethernet1/0": { "ipv4": "10.0.10.10", "ngbr": "PC1", "network": { "prefix": "10.0.10.8", "subnet": "/29" }, "mask": "/29" },
+                        "Gigabitethernet2/0": { "ipv4": "10.0.10.17", "ngbr": "PE2", "network": { "prefix": "10.0.10.16", "subnet": "/29" }, "mask": "/29" },
+                        "Loopback0": { "ipv4": "", "mask": "/32" }
                     }
                 },
                 "PE2": {
                     "interfaces": {
-                        "Gigabitethernet1/0": {
-                            "ipv4": "10.0.10.18",
-                            "ngbr": "PC2",
-                            "network": {
-                                "prefix": "10.0.10.16",
-                                "subnet": "/29"
-                            },
-                            "mask": "/29"
-                        },
-                        "Gigabitethernet2/0": {
-                            "vrf": "Arsium",
-                            "ipv4": "192.168.2.1",
-                            "ngbr": "CE1",
-                            "network": {
-                                "prefix": "192.168.2.0",
-                                "subnet": "/30"
-                            },
-                            "mask": "/30"
-                        },
-                        "Gigabitethernet3/0": {
-                            "vrf": "EuroInfo",
-                            "ipv4": "192.168.2.1",
-                            "ngbr": "CE3",
-                            "network": {
-                                "prefix": "192.168.2.0",
-                                "subnet": "/30"
-                            },
-                            "mask": "/30"
-                        },
-                        "Loopback0": {
-                            "ipv4": "",
-                            "mask": "/32"
-                        }
+                        "Gigabitethernet1/0": { "ipv4": "10.0.10.18", "ngbr": "PC2", "network": { "prefix": "10.0.10.16", "subnet": "/29" }, "mask": "/29" },
+                        "Gigabitethernet2/0": { "vrf": "Arsium", "ipv4": "192.168.2.1", "ngbr": "CE1", "network": { "prefix": "192.168.2.0", "subnet": "/30" }, "mask": "/30" },
+                        "Gigabitethernet3/0": { "vrf": "EuroInfo", "ipv4": "192.168.2.1", "ngbr": "CE3", "network": { "prefix": "192.168.2.0", "subnet": "/30" }, "mask": "/30" },
+                        "Gigabitethernet4/0": { "vrf": "Shared", "ipv4": "172.16.2.1", "ngbr": "CE5", "network": { "prefix": "172.16.2.0", "subnet": "/30" }, "mask": "/30" },
+                        "Loopback0": { "ipv4": "", "mask": "/32" }
                     }
                 }
             }
         },
         "102": {
             "igp": "RIP",
-            "ngbr_AS": {
-                "3215": "provider"
-            },
+            "ngbr_AS": { "3215": "provider" },
             "ldp": false,
             "routers": {
                 "CE": {
+                    "nat_static": "ip nat inside source static network 192.168.67.0 10.1.67.0 255.255.255.0",
+                    "static_routes": [ "ip route 10.1.67.0 255.255.255.0 Null0" ],
                     "interfaces": {
-                        "Gigabitethernet1/0": {
-                            "ipv4": "192.168.1.2",
-                            "ngbr": "PE1",
-                            "allowas_in": true,
-                            "network": {
-                                "prefix": "192.168.1.0",
-                                "subnet": "/30"
-                            },
-                            "mask": "/30"
-                        },
-                        "Gigabitethernet2/0": {
-                            "ipv4": "192.168.67.254",
-                            "network": {
-                                "prefix": "192.168.67.0",
-                                "subnet": "/24"
-                            },
-                            "mask": "/24"
-                        }
+                        "Gigabitethernet1/0": { "ipv4": "192.168.1.2", "ngbr": "PE1", "allowas_in": true, "nat": "outside", "network": { "prefix": "192.168.1.0", "subnet": "/30" }, "mask": "/30" },
+                        "Gigabitethernet2/0": { "ipv4": "192.168.67.254", "nat": "inside", "network": { "prefix": "192.168.67.0", "subnet": "/24" }, "mask": "/24" }
                     }
                 },
                 "CE1": {
+                    "nat_static": "ip nat inside source static network 192.168.69.0 10.1.69.0 255.255.255.0",
+                    "static_routes": [ "ip route 10.1.69.0 255.255.255.0 Null0" ],
                     "interfaces": {
-                        "Gigabitethernet1/0": {
-                            "ipv4": "192.168.2.2",
-                            "ngbr": "PE2",
-                            "allowas_in": true,
-                            "network": {
-                                "prefix": "192.168.2.0",
-                                "subnet": "/30"
-                            },
-                            "mask": "/30"
-                        },
-                        "Gigabitethernet2/0": {
-                            "ipv4": "192.168.69.254",
-                            "network": {
-                                "prefix": "192.168.69.0",
-                                "subnet": "/24"
-                            },
-                            "mask": "/24"
-                        }
+                        "Gigabitethernet1/0": { "ipv4": "192.168.2.2", "ngbr": "PE2", "allowas_in": true, "nat": "outside", "network": { "prefix": "192.168.2.0", "subnet": "/30" }, "mask": "/30" },
+                        "Gigabitethernet2/0": { "ipv4": "192.168.69.254", "nat": "inside", "network": { "prefix": "192.168.69.0", "subnet": "/24" }, "mask": "/24" }
                     }
                 }
             }
         },
         "25117": {
             "igp": "OSPF",
-            "ngbr_AS": {
-                "3215": "provider"
-            },
+            "ngbr_AS": { "3215": "provider" },
             "ldp": false,
             "routers": {
                 "CE2": {
+                    "nat_static": "ip nat inside source static network 192.168.67.0 10.2.67.0 255.255.255.0",
+                    "static_routes": [ "ip route 10.2.67.0 255.255.255.0 Null0" ],
                     "interfaces": {
-                        "Gigabitethernet1/0": {
-                            "ipv4": "192.168.1.2",
-                            "ngbr": "PE1",
-                            "allowas_in": true,
-                            "network": {
-                                "prefix": "192.168.1.0",
-                                "subnet": "/30"
-                            },
-                            "mask": "/30"
-                        },
-                        "Gigabitethernet2/0": {
-                            "ipv4": "192.168.67.254",
-                            "network": {
-                                "prefix": "192.168.67.0",
-                                "subnet": "/24"
-                            },
-                            "mask": "/24"
-                        }
+                        "Gigabitethernet1/0": { "ipv4": "192.168.1.2", "ngbr": "PE1", "allowas_in": true, "nat": "outside", "network": { "prefix": "192.168.1.0", "subnet": "/30" }, "mask": "/30" },
+                        "Gigabitethernet2/0": { "ipv4": "192.168.67.254", "nat": "inside", "network": { "prefix": "10.2.67.0", "subnet": "/24" }, "mask": "/24" }
                     }
                 },
                 "CE3": {
+                    "nat_static": "ip nat inside source static network 192.168.69.0 10.2.69.0 255.255.255.0",
+                    "static_routes": [ "ip route 10.2.69.0 255.255.255.0 Null0" ],
                     "interfaces": {
-                        "Gigabitethernet1/0": {
-                            "ipv4": "192.168.2.2",
-                            "ngbr": "PE2",
-                            "allowas_in": true,
-                            "network": {
-                                "prefix": "192.168.2.0",
-                                "subnet": "/30"
-                            },
-                            "mask": "/30"
-                        },
-                        "Gigabitethernet2/0": {
-                            "ipv4": "192.168.69.254",
-                            "network": {
-                                "prefix": "192.168.69.0",
-                                "subnet": "/24"
-                            },
-                            "mask": "/24"
-                        }
+                        "Gigabitethernet1/0": { "ipv4": "192.168.2.2", "ngbr": "PE2", "allowas_in": true, "nat": "outside", "network": { "prefix": "192.168.2.0", "subnet": "/30" }, "mask": "/30" },
+                        "Gigabitethernet2/0": { "ipv4": "192.168.69.254", "nat": "inside", "network": { "prefix": "10.2.69.0", "subnet": "/24" }, "mask": "/24" }
+                    }
+                }
+            }
+        },
+        "206897": {
+            "igp": "OSPF",
+            "ngbr_AS": { "3215": "provider" },
+            "ldp": false,
+            "routers": {
+                "CE4": {
+                    "interfaces": {
+                        "Gigabitethernet1/0": { "ipv4": "172.16.1.2", "ngbr": "PE1", "allowas_in": true, "network": { "prefix": "172.16.1.0", "subnet": "/30" }, "mask": "/30" },
+                        "Gigabitethernet2/0": { "ipv4": "172.16.100.254", "network": { "prefix": "172.16.100.0", "subnet": "/24" }, "mask": "/24" }
+                    }
+                },
+                "CE5": {
+                    "interfaces": {
+                        "Gigabitethernet1/0": { "ipv4": "172.16.2.2", "ngbr": "PE2", "allowas_in": true, "network": { "prefix": "172.16.2.0", "subnet": "/30" }, "mask": "/30" },
+                        "Gigabitethernet2/0": { "ipv4": "172.16.200.254", "network": { "prefix": "172.16.200.0", "subnet": "/24" }, "mask": "/24" }
                     }
                 }
             }
