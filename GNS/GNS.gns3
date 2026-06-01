@@ -21,7 +21,7 @@
                 "drawing_id": "1278f0db-add0-4bab-ba75-fd986cd6ee26",
                 "locked": false,
                 "rotation": 0,
-                "svg": "<svg width=\"120\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">IP : 10.0.10.1/29</text></svg>",
+                "svg": "<svg width=\"120\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">IP : 10.0.10.6/29</text></svg>",
                 "x": -326,
                 "y": 23,
                 "z": 2
@@ -30,7 +30,7 @@
                 "drawing_id": "45d745e2-65b0-4405-bc48-628037c50323",
                 "locked": false,
                 "rotation": 0,
-                "svg": "<svg width=\"120\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">IP : 10.0.10.9/29</text></svg>",
+                "svg": "<svg width=\"120\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">IP : 10.0.10.1/29</text></svg>",
                 "x": -97,
                 "y": 23,
                 "z": 2
@@ -39,7 +39,7 @@
                 "drawing_id": "220ea873-736a-402c-a6cb-e72aa47b36b7",
                 "locked": false,
                 "rotation": 0,
-                "svg": "<svg width=\"129\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">IP : 10.0.10.10/29</text></svg>",
+                "svg": "<svg width=\"120\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">IP : 10.0.10.2/29</text></svg>",
                 "x": -3,
                 "y": 98,
                 "z": 2
@@ -48,9 +48,9 @@
                 "drawing_id": "50267efe-e6dd-427e-95c1-c7632d3ce5bd",
                 "locked": false,
                 "rotation": 0,
-                "svg": "<svg width=\"129\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">IP : 10.0.10.18/29</text></svg>",
-                "x": 256,
-                "y": 100,
+                "svg": "<svg width=\"129\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">IP : 10.0.10.10/29</text></svg>",
+                "x": 192,
+                "y": 91,
                 "z": 2
             },
             {
@@ -120,7 +120,7 @@
                 "drawing_id": "f88356c6-d52d-4499-966b-3eb494aaf645",
                 "locked": false,
                 "rotation": 0,
-                "svg": "<svg width=\"120\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">IP : 10.0.10.2/29</text></svg>",
+                "svg": "<svg width=\"120\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">IP : 10.0.10.5/29</text></svg>",
                 "x": -248,
                 "y": 99,
                 "z": 2
@@ -129,7 +129,7 @@
                 "drawing_id": "a910f9b0-c06e-4f52-b311-8a13684cd398",
                 "locked": false,
                 "rotation": 0,
-                "svg": "<svg width=\"129\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">IP : 10.0.10.17/29</text></svg>",
+                "svg": "<svg width=\"120\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">IP : 10.0.10.9/29</text></svg>",
                 "x": 151,
                 "y": 33,
                 "z": 2
@@ -156,36 +156,18 @@
                 "drawing_id": "fc990f94-8786-45a4-99c7-d8b62408f884",
                 "locked": false,
                 "rotation": 0,
-                "svg": "<svg width=\"170\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">R\u00e9seau : 192.168.1.0/30</text></svg>",
-                "x": -426,
-                "y": -30,
-                "z": 2
-            },
-            {
-                "drawing_id": "428c2971-3645-43f4-81fa-2091448201f6",
-                "locked": false,
-                "rotation": 0,
-                "svg": "<svg width=\"113\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">IP : 192.168.1.1</text></svg>",
-                "x": -509,
-                "y": 61,
+                "svg": "<svg width=\"170\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">R\u00e9seau : 192.168.0.0/30</text></svg>",
+                "x": -435,
+                "y": -31,
                 "z": 2
             },
             {
                 "drawing_id": "00798c05-dd1a-407e-8693-b4f82ee03647",
                 "locked": false,
                 "rotation": 0,
-                "svg": "<svg width=\"170\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">R\u00e9seau : 192.168.2.0/30</text></svg>",
-                "x": 214,
-                "y": -17,
-                "z": 2
-            },
-            {
-                "drawing_id": "bad9f29b-e7b5-4afc-b58f-f264c83a078c",
-                "locked": false,
-                "rotation": 0,
-                "svg": "<svg width=\"113\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">IP : 192.168.2.1</text></svg>",
-                "x": 428,
-                "y": 50,
+                "svg": "<svg width=\"170\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">R\u00e9seau : 192.168.0.4/30</text></svg>",
+                "x": 441,
+                "y": -3,
                 "z": 2
             },
             {
@@ -193,8 +175,8 @@
                 "locked": false,
                 "rotation": 0,
                 "svg": "<svg width=\"220\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">LAN INTERNE : 192.168.67.0/24</text></svg>",
-                "x": -701,
-                "y": -210,
+                "x": -700,
+                "y": -213,
                 "z": 2
             },
             {
@@ -219,7 +201,7 @@
                 "drawing_id": "3bbfb063-594b-458f-afbc-78da5bd54aa4",
                 "locked": false,
                 "rotation": 0,
-                "svg": "<svg width=\"220\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">LAN INTERNE : 192.168.67.0/24</text></svg>",
+                "svg": "<svg width=\"220\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">LAN INTERNE : 192.168.69.0/24</text></svg>",
                 "x": 495,
                 "y": 192,
                 "z": 2
@@ -247,8 +229,8 @@
                 "locked": false,
                 "rotation": 0,
                 "svg": "<svg width=\"192\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">Client SopraSteria AS 20867</text></svg>",
-                "x": -429,
-                "y": 359,
+                "x": -434,
+                "y": 579,
                 "z": 2
             },
             {
@@ -256,8 +238,8 @@
                 "locked": false,
                 "rotation": 0,
                 "svg": "<svg width=\"192\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">Client SopraSteria AS 20867</text></svg>",
-                "x": 273,
-                "y": 359,
+                "x": 262,
+                "y": 572,
                 "z": 2
             },
             {
@@ -266,7 +248,7 @@
                 "rotation": 0,
                 "svg": "<svg width=\"220\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">LAN INTERNE : 172.16.100.0/24</text></svg>",
                 "x": -451,
-                "y": 410,
+                "y": 523,
                 "z": 2
             },
             {
@@ -274,8 +256,53 @@
                 "locked": false,
                 "rotation": 0,
                 "svg": "<svg width=\"220\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">LAN INTERNE : 172.16.200.0/24</text></svg>",
-                "x": 240,
-                "y": 403,
+                "x": 246,
+                "y": 510,
+                "z": 2
+            },
+            {
+                "drawing_id": "3d2f704e-5a2a-44f6-a51e-2292030a5ed6",
+                "locked": false,
+                "rotation": 0,
+                "svg": "<svg width=\"170\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">R\u00e9seau : 192.168.0.8/30</text></svg>",
+                "x": -586,
+                "y": 76,
+                "z": 2
+            },
+            {
+                "drawing_id": "31a1e79a-7c1f-4471-95bc-464a6be79fdb",
+                "locked": false,
+                "rotation": 0,
+                "svg": "<svg width=\"178\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">R\u00e9seau : 192.168.0.12/30</text></svg>",
+                "x": 452,
+                "y": 98,
+                "z": 2
+            },
+            {
+                "drawing_id": "a56f038e-6c8a-4268-a9e3-bb31e1289b2f",
+                "locked": false,
+                "rotation": 0,
+                "svg": "<svg width=\"178\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">R\u00e9seau : 192.168.0.16/30</text></svg>",
+                "x": -329,
+                "y": 261,
+                "z": 2
+            },
+            {
+                "drawing_id": "0f5bba07-4c6d-4a57-ae74-fa727371cf9e",
+                "locked": false,
+                "rotation": 0,
+                "svg": "<svg width=\"178\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">R\u00e9seau : 192.168.0.20/30</text></svg>",
+                "x": -103,
+                "y": 209,
+                "z": 2
+            },
+            {
+                "drawing_id": "f099a0ab-280a-4c3b-be79-df2836c26a03",
+                "locked": false,
+                "rotation": 0,
+                "svg": "<svg width=\"178\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">R\u00e9seau : 192.168.0.24/30</text></svg>",
+                "x": 163,
+                "y": 284,
                 "z": 2
             }
         ],
@@ -975,8 +1002,8 @@
                 "symbol": ":/symbols/router.svg",
                 "template_id": "0dbd526c-920a-418c-a389-5aa42d6316be",
                 "width": 66,
-                "x": -622,
-                "y": -142,
+                "x": -571,
+                "y": -123,
                 "z": 1
             },
             {
@@ -1183,7 +1210,7 @@
                 "template_id": "0dbd526c-920a-418c-a389-5aa42d6316be",
                 "width": 66,
                 "x": -388,
-                "y": 479,
+                "y": 444,
                 "z": 1
             },
             {
@@ -1251,8 +1278,8 @@
                 "symbol": ":/symbols/router.svg",
                 "template_id": "0dbd526c-920a-418c-a389-5aa42d6316be",
                 "width": 66,
-                "x": 324,
-                "y": 486,
+                "x": 318,
+                "y": 430,
                 "z": 1
             },
             {
@@ -1280,8 +1307,8 @@
                 "symbol": ":/symbols/vpcs_guest.svg",
                 "template_id": "19021f99-e36f-394d-b4a1-8aaa902ab9cc",
                 "width": 65,
-                "x": -816,
-                "y": -323,
+                "x": -703,
+                "y": -130,
                 "z": 1
             },
             {

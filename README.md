@@ -24,7 +24,7 @@ C'est la reference du format d'intention du projet (topologie complete : coeur M
 | MPLS / LDP | `mpls ip` sur les liens coeur |
 | iBGP VPNv4 | Sessions PE-PE via loopbacks |
 | VRF L3VPN | RD/RT automatiques, eBGP PE-CE par VRF |
-| Multi-RT / partage | VRF `Shared` avec `import_customers` |
+| Multi-RT / partage | VRF `SopraSteria` avec `import_customers` |
 | NAT client | `nat_map` (NAT statique reseau + route Null0) |
 | RIP / OSPF client | IGP configurable par AS client |
 | `allowas-in` | CE multi-sites (meme AS annonce par plusieurs PE) |
@@ -186,7 +186,7 @@ La commande `validate` verifie avant tout push :
 | Phase 2 -- iBGP VPNv4 | Oui (PE-PE loopback) |
 | Phase 3 -- VRF, eBGP PE-CE | Oui (+ NAT, RIP, allowas-in) |
 | Phase 4.a -- Manageability | Oui (`state.json`, teardown, CLI diff/apply) |
-| Phase 4.b -- Site sharing (multi-RT) | Oui (`import_customers`, VRF Shared) |
+| Phase 4.b -- Site sharing (multi-RT) | Oui (`import_customers`, VRF SopraSteria) |
 | Phase 4.b -- Ingress TE | Oui (CE4 dual-home + `prepend`) |
 | Phase 4.b -- Internet services | Non implemente |
 | Phase 4.b -- RSVP | Non implemente |
@@ -207,7 +207,7 @@ ping vrf <VRF> <adresse>
 Ingress TE (CE4) :
 
 ```text
-PE2# show ip bgp vpnv4 vrf Shared 172.16.100.0
+PE2# show ip bgp vpnv4 vrf SopraSteria 172.16.100.0
 ```
 
 ---

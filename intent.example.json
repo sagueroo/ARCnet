@@ -13,7 +13,7 @@
             "vrfs": {
                 "Arsium": { "customer_as": "102", "import_customers": ["206897"] },
                 "EuroInfo": { "customer_as": "25117", "import_customers": ["206897"] },
-                "Shared": { "customer_as": "206897", "import_customers": ["102", "25117"] }
+                "SopraSteria": { "customer_as": "206897", "import_customers": ["102", "25117"] }
             },
             "routers": {
                 "PE1": {
@@ -21,7 +21,7 @@
                         "Gigabitethernet1/0": { "peer": "PC1" },
                         "Gigabitethernet2/0": { "vrf": "Arsium", "peer": "CE" },
                         "Gigabitethernet3/0": { "vrf": "EuroInfo", "peer": "CE2" },
-                        "Gigabitethernet4/0": { "vrf": "Shared", "peer": "CE4" },
+                        "Gigabitethernet4/0": { "vrf": "SopraSteria", "peer": "CE4" },
                         "Loopback0": {}
                     }
                 },
@@ -44,8 +44,8 @@
                         "Gigabitethernet1/0": { "peer": "PC2" },
                         "Gigabitethernet2/0": { "vrf": "Arsium", "peer": "CE1" },
                         "Gigabitethernet3/0": { "vrf": "EuroInfo", "peer": "CE3" },
-                        "Gigabitethernet4/0": { "vrf": "Shared", "peer": "CE5" },
-                        "Gigabitethernet5/0": { "vrf": "Shared", "peer": "CE4" },
+                        "Gigabitethernet4/0": { "vrf": "SopraSteria", "peer": "CE5" },
+                        "Gigabitethernet5/0": { "vrf": "SopraSteria", "peer": "CE4" },
                         "Loopback0": {}
                     }
                 }

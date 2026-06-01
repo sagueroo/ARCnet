@@ -1,4 +1,11 @@
 {
+    "addressing": {
+        "loopback_pool": "10.200.0.0/24",
+        "core_pool": "10.0.10.0/24",
+        "core_prefix": 30,
+        "customer_pool": "192.168.0.0/22",
+        "customer_prefix": 30
+    },
     "AS": {
         "3215": {
             "igp": "OSPF",
@@ -28,23 +35,23 @@
                 "PE1": {
                     "interfaces": {
                         "Gigabitethernet1/0": {
-                            "ip": "10.0.10.1/29",
-                            "peer": "PC1"
+                            "peer": "PC1",
+                            "ip": "10.0.10.6/30"
                         },
                         "Gigabitethernet2/0": {
                             "vrf": "Arsium",
-                            "ip": "192.168.1.1/30",
-                            "peer": "CE"
+                            "peer": "CE",
+                            "ip": "192.168.0.2/30"
                         },
                         "Gigabitethernet3/0": {
                             "vrf": "EuroInfo",
-                            "ip": "192.168.1.1/30",
-                            "peer": "CE2"
+                            "peer": "CE2",
+                            "ip": "192.168.0.10/30"
                         },
                         "Gigabitethernet4/0": {
                             "vrf": "Shared",
-                            "ip": "172.16.1.1/30",
-                            "peer": "CE4"
+                            "peer": "CE4",
+                            "ip": "192.168.0.18/30"
                         },
                         "Loopback0": {}
                     }
@@ -52,12 +59,12 @@
                 "PC1": {
                     "interfaces": {
                         "Gigabitethernet1/0": {
-                            "ip": "10.0.10.2/29",
-                            "peer": "PE1"
+                            "peer": "PE1",
+                            "ip": "10.0.10.5/30"
                         },
                         "Gigabitethernet2/0": {
-                            "ip": "10.0.10.9/29",
-                            "peer": "PC2"
+                            "peer": "PC2",
+                            "ip": "10.0.10.1/30"
                         },
                         "Loopback0": {}
                     }
@@ -65,12 +72,12 @@
                 "PC2": {
                     "interfaces": {
                         "Gigabitethernet1/0": {
-                            "ip": "10.0.10.10/29",
-                            "peer": "PC1"
+                            "peer": "PC1",
+                            "ip": "10.0.10.2/30"
                         },
                         "Gigabitethernet2/0": {
-                            "ip": "10.0.10.17/29",
-                            "peer": "PE2"
+                            "peer": "PE2",
+                            "ip": "10.0.10.9/30"
                         },
                         "Loopback0": {}
                     }
@@ -78,23 +85,28 @@
                 "PE2": {
                     "interfaces": {
                         "Gigabitethernet1/0": {
-                            "ip": "10.0.10.18/29",
-                            "peer": "PC2"
+                            "peer": "PC2",
+                            "ip": "10.0.10.10/30"
                         },
                         "Gigabitethernet2/0": {
                             "vrf": "Arsium",
-                            "ip": "192.168.2.1/30",
-                            "peer": "CE1"
+                            "peer": "CE1",
+                            "ip": "192.168.0.6/30"
                         },
                         "Gigabitethernet3/0": {
                             "vrf": "EuroInfo",
-                            "ip": "192.168.2.1/30",
-                            "peer": "CE3"
+                            "peer": "CE3",
+                            "ip": "192.168.0.14/30"
                         },
                         "Gigabitethernet4/0": {
                             "vrf": "Shared",
-                            "ip": "172.16.2.1/30",
-                            "peer": "CE5"
+                            "peer": "CE5",
+                            "ip": "192.168.0.26/30"
+                        },
+                        "Gigabitethernet5/0": {
+                            "vrf": "Shared",
+                            "peer": "CE4",
+                            "ip": "192.168.0.22/30"
                         },
                         "Loopback0": {}
                     }
@@ -112,10 +124,10 @@
                     },
                     "interfaces": {
                         "Gigabitethernet1/0": {
-                            "ip": "192.168.1.2/30",
                             "peer": "PE1",
                             "nat": "outside",
-                            "allowas_in": true
+                            "allowas_in": true,
+                            "ip": "192.168.0.1/30"
                         },
                         "Gigabitethernet2/0": {
                             "ip": "192.168.67.254/24",
@@ -130,10 +142,10 @@
                     },
                     "interfaces": {
                         "Gigabitethernet1/0": {
-                            "ip": "192.168.2.2/30",
                             "peer": "PE2",
                             "nat": "outside",
-                            "allowas_in": true
+                            "allowas_in": true,
+                            "ip": "192.168.0.5/30"
                         },
                         "Gigabitethernet2/0": {
                             "ip": "192.168.69.254/24",
@@ -154,10 +166,10 @@
                     },
                     "interfaces": {
                         "Gigabitethernet1/0": {
-                            "ip": "192.168.1.2/30",
                             "peer": "PE1",
                             "nat": "outside",
-                            "allowas_in": true
+                            "allowas_in": true,
+                            "ip": "192.168.0.9/30"
                         },
                         "Gigabitethernet2/0": {
                             "ip": "192.168.67.254/24",
@@ -173,10 +185,10 @@
                     },
                     "interfaces": {
                         "Gigabitethernet1/0": {
-                            "ip": "192.168.2.2/30",
                             "peer": "PE2",
                             "nat": "outside",
-                            "allowas_in": true
+                            "allowas_in": true,
+                            "ip": "192.168.0.13/30"
                         },
                         "Gigabitethernet2/0": {
                             "ip": "192.168.69.254/24",
@@ -194,11 +206,17 @@
                 "CE4": {
                     "interfaces": {
                         "Gigabitethernet1/0": {
-                            "ip": "172.16.1.2/30",
                             "peer": "PE1",
-                            "allowas_in": true
+                            "allowas_in": true,
+                            "ip": "192.168.0.17/30"
                         },
                         "Gigabitethernet2/0": {
+                            "peer": "PE2",
+                            "allowas_in": true,
+                            "prepend": 2,
+                            "ip": "192.168.0.21/30"
+                        },
+                        "Gigabitethernet3/0": {
                             "ip": "172.16.100.254/24"
                         }
                     }
@@ -206,9 +224,9 @@
                 "CE5": {
                     "interfaces": {
                         "Gigabitethernet1/0": {
-                            "ip": "172.16.2.2/30",
                             "peer": "PE2",
-                            "allowas_in": true
+                            "allowas_in": true,
+                            "ip": "192.168.0.25/30"
                         },
                         "Gigabitethernet2/0": {
                             "ip": "172.16.200.254/24"
