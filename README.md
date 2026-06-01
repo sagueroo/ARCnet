@@ -1,100 +1,199 @@
 # ARCnet
 
-Automatisation du provisionnement d’un réseau **BGP / MPLS L3VPN** à partir d’un fichier d’**intention** JSON. Le contrôleur génère des commandes Cisco IOS et les applique en **Telnet** sur les routeurs GNS3, sans rechargement des nœuds.
+Automatisation du provisionnement d'un reseau **BGP / MPLS L3VPN** a partir d'un fichier d'**intention** JSON. Le controleur genere des commandes Cisco IOS et les applique en **Telnet** sur les routeurs GNS3, sans rechargement des noeuds.
 
-Projet de module **NAS** (3TC) — prolongement logique d’un lab **GNS** (cœur IP) vers **MPLS, VPNv4, VRF et PE–CE**.
-
----
-
-## Prérequis
-
-- **Python 3** (bibliothèque standard : `json`, `ipaddress`, `telnetlib`, pas de `pip` obligatoire).
-- **GNS3** avec topologie **Dynamips** ; les **noms des routeurs** dans GNS3 doivent **correspondre exactement** aux clés `routers` de `intent.json` (ex. `PE1`, `PC1`, `CE`, …).
-- Répertoire du projet contenant le dossier **`GNS/`** avec le fichier **`.gns3`** du lab.
+Projet de module **NAS** (3TC) -- prolongement logique d'un lab **GNS** (coeur IP) vers **MPLS, VPNv4, VRF et PE-CE**.
 
 ---
 
-## Démarrage rapide
+## Fichier d'entree (intent)
 
-1. Ouvrir le projet dans GNS3 et **démarrer** tous les routeurs.
-2. Depuis la racine du dépôt (là où se trouvent `intent.json` et `sdn_controller.py`) :
+**Fichier d'exemple a consulter sur GitHub : [`intent.example.json`](intent.example.json)**
+
+C'est la reference du format d'intention du projet (topologie complete : coeur MPLS, 3 clients, NAT, multihoming Ingress TE). Le controleur utilise par defaut `intent.json` (meme contenu en local) ; vous pouvez pointer vers l'exemple avec `--intent intent.example.json`.
+
+---
+
+## Fonctionnalites
+
+### Reseau (sujet NAS)
+
+| Fonctionnalite | Description |
+|----------------|-------------|
+| Coeur OSPF | PE1 -- PC1 -- PC2 -- PE2, loopbacks, area 0 |
+| MPLS / LDP | `mpls ip` sur les liens coeur |
+| iBGP VPNv4 | Sessions PE-PE via loopbacks |
+| VRF L3VPN | RD/RT automatiques, eBGP PE-CE par VRF |
+| Multi-RT / partage | VRF `Shared` avec `import_customers` |
+| NAT client | `nat_map` (NAT statique reseau + route Null0) |
+| RIP / OSPF client | IGP configurable par AS client |
+| `allowas-in` | CE multi-sites (meme AS annonce par plusieurs PE) |
+| `redistribute connected` (BGP VRF) | Liens PE-CE annonces dans le VPN (retour ping) |
+| Ingress TE (Phase 4.b) | CE dual-home + `prepend` AS-path (lien backup) |
+
+### Logiciel
+
+| Fonctionnalite | Description |
+|----------------|-------------|
+| Intent JSON simplifie | Peers, VRF, pools -- peu d'IPs en dur |
+| Allocation IP dynamique | Pools `addressing` + override manuel par interface |
+| Validation d'intent | Erreurs claires avant push (`validate`) |
+| CLI | `validate`, `diff`, `apply`, `--only`, `--intent` |
+| Mises a jour incrementales | `state.json` + teardown (add / delete / update) |
+| Router-ID uniques | Pool loopback (`10.200.0.x`), scalable |
+| Tests unitaires | `test_sdn_controller.py` (27 tests) |
+
+---
+
+## Prerequis
+
+- **Python 3** (bibliotheque standard uniquement, pas de `pip`).
+- **GNS3** avec topologie **Dynamips** ; les **noms des routeurs** dans GNS3 doivent correspondre aux cles `routers` de l'intent.
+- Repertoire du projet contenant le dossier **`GNS/`** avec le fichier `.gns3` du lab.
+
+---
+
+## Demarrage rapide
+
+1. Ouvrir le projet dans GNS3 et **demarrer** tous les routeurs.
+2. Depuis la racine du depot :
 
 ```bash
-python sdn_controller.py
+# Valider l'intent (pas de push)
+python sdn_controller.py validate
+
+# Voir les commandes qui seraient envoyees
+python sdn_controller.py diff
+
+# Pousser la config sur tous les routeurs
+python sdn_controller.py apply
+
+# Utiliser le fichier d'exemple officiel
+python sdn_controller.py validate --intent intent.example.json
+
+# Pousser sur certains routeurs seulement
+python sdn_controller.py apply --only PE1,CE
 ```
 
-3. Le script lit `GNS/*.gns3`, récupère les **ports console**, pousse la configuration, puis enregistre l’intention courante dans `state.json`.
+Sans sous-commande, `python sdn_controller.py` equivaut a `apply`.
 
-**Hôte Telnet :** par défaut `127.0.0.1` (GNS3 en local). Adapter `HOST` dans `sdn_controller.py` si besoin.
+### Tests
 
-**Chemin GNS3 :** par défaut `GNS3_PROJECT_DIR = "./GNS"`. Modifier la constante en tête de `sdn_controller.py` si votre arborescence diffère.
+```bash
+python -m unittest test_sdn_controller -v
+```
+
+---
+
+## Sous-commandes CLI
+
+| Commande | Description |
+|----------|-------------|
+| `validate` | Verifie la coherence de l'intent, affiche les router-id et les liens detectes. |
+| `diff` | Genere et affiche les commandes IOS (teardown + build) sans toucher aux routeurs. |
+| `diff --only PE1,CE` | Idem, filtre sur certains routeurs. |
+| `apply` | Pousse la configuration sur tous les routeurs via Telnet. |
+| `apply --only PE1,CE` | Pousse uniquement sur les routeurs indiques. |
+| `--intent fichier.json` | Fichier intent (defaut : `intent.json`, exemple : `intent.example.json`). |
 
 ---
 
 ## Fichiers principaux
 
-| Fichier | Rôle |
-|--------|------|
-| `intent.json` | Source de vérité : AS, routeurs, interfaces, VRF, NAT, etc. |
-| `sdn_controller.py` | Génération des commandes IOS + push Telnet + gestion du diff avec `state.json`. |
-| `state.json` | **Mémoire du dernier déploiement** : comparaison avec `intent.json` pour générer un **teardown** partiel (suppression de VRF, interfaces, AS retirés). Créé/mis à jour automatiquement. |
+| Fichier | Role |
+|---------|------|
+| **`intent.example.json`** | **Fichier d'entree d'exemple** (reference GitHub). |
+| `intent.json` | Intent utilise en local par defaut. |
+| `sdn_controller.py` | Validation + allocation IP + generation IOS + push Telnet + diff. |
+| `state.json` | Memoire du dernier deploiement (genere par `apply`, non versionne). |
+| `test_sdn_controller.py` | Tests unitaires. |
 | `GNS/` | Projet GNS3 (topologie, configs Dynamips). |
-
-En cas de **changement majeur** de schéma ou de repartir de zéro sur les routeurs, supprimer `state.json` avant un nouveau run évite un teardown incohérent avec l’ancien modèle.
 
 ---
 
-## Modèle d’intention (`intent.json`)
+## Modele d'intention (`intent.json` / `intent.example.json`)
 
-La racine contient un objet **`AS`** : chaque clé est un **numéro d’AS** (chaîne), chaque valeur décrit ce AS.
+### Allocation IP dynamique
 
-### Fournisseur (cœur MPLS / PE)
+Le bloc `addressing` (optionnel) definit des **pools** d'adresses. Quand il est present, les interfaces P2P **sans** champ `ip` recoivent une adresse automatiquement :
+
+```json
+"addressing": {
+    "loopback_pool": "10.200.0.0/24",
+    "core_pool": "10.0.10.0/24",
+    "core_prefix": 30,
+    "customer_pool": "192.168.0.0/22",
+    "customer_prefix": 30
+}
+```
+
+- **`loopback_pool`** : pool pour les router-id / Loopback0 (1 adresse par routeur).
+- **`core_pool` + `core_prefix`** : sous-reseaux pour les liens P2P du coeur (PE-P, P-P).
+- **`customer_pool` + `customer_prefix`** : sous-reseaux pour les liens PE-CE.
+
+**Override manuel** : si un champ `"ip": "x.x.x.x/n"` est present sur une interface, il est conserve tel quel. Le pair deduit son adresse depuis le meme sous-reseau.
+
+### Fournisseur (coeur MPLS)
 
 - `igp` : `"OSPF"` ou `"RIP"`.
-- `mpls` : `true` active **OSPF + `mpls ip`** sur les liens cœur (interfaces **sans** VRF, hors loopback).
-- `vrfs` : dictionnaire **nom de VRF** → objet :
-  - `customer_as` : AS du client (sert à former RD et RT d’export : `{AS_fournisseur}:{customer_as}`).
-  - `import_customers` : liste d’AS (ou RT complets avec `:`) pour les **route-target import** additionnels (partage de routes entre VPN).
-  - `rd` *(optionnel)* : surcharge du **Route Distinguisher**.
-- `routers` : pour chaque routeur, `interfaces` avec au minimum :
-  - Liens numérotés : `"ip": "A.B.C.D/prefix"`, `"peer": "NomRouteurVoisin"`.
-  - Lien **PE–CE** côté PE : ajouter `"vrf": "NomVRF"` ; `customer_as` sur l’interface est optionnel (sinon déduit via le nom du routeur `peer`).
-  - **Loopback** cœur : `"Loopback0": { }` (masque `/32` par défaut) ; l’adresse est **attribuée automatiquement** (voir ci-dessous).
+- `mpls` : `true` active OSPF + `mpls ip` sur les liens coeur.
+- `vrfs` : dictionnaire **nom VRF** -> `{ "customer_as": "...", "import_customers": [...] }`.
+- `routers` : interfaces avec `peer` (nom du voisin), `vrf` optionnel, `Loopback0: {}`.
 
 ### Clients (CE)
 
-- `upstream_as` : AS du fournisseur (pour le voisin **eBGP** vers le PE).
-- `igp` : `"OSPF"` ou `"RIP"`.
-- `routers` : interfaces avec `ip`, `peer` vers le PE pour le lien WAN ; champs optionnels :
-  - `nat` : `"inside"` / `"outside"` sur l’interface.
-  - `allowas_in` : `true` sur le lien vers le PE si nécessaire.
-  - `announce` : préfixe CIDR **annoncé en BGP** lorsqu’il diffère du réseau de l’interface (ex. préfixe « public » derrière NAT).
-- `nat_map` au niveau routeur *(optionnel)* :  
-  `"nat_map": { "local": "192.168.x.0/24", "global": "10.x.x.0/24" }`  
-  génère la **NAT statique réseau** IOS et une route vers **Null0** pour le préfixe global.
+- `upstream_as` : AS du fournisseur.
+- `nat_map` (optionnel) : `{ "local": "192.168.x.0/24", "global": "10.x.x.0/24" }`.
+- Interfaces : `peer` vers le PE, `nat`, `allowas_in`, `announce` (prefixe BGP si different du LAN).
+- **`prepend`** (optionnel) : nombre de repetitions de l'AS local sur une session eBGP (Ingress TE, lien backup).
 
-### Router-id et loopbacks
+### Exemple Ingress TE (CE4 dual-home)
 
-Tous les routeurs reçoivent un **router-id unique** sous forme d’adresses **incrémentales** dans la plage **`10.200.0.1`**, `10.200.0.2`, … (à partir de `10.200.0.0` + index), selon l’**ordre** des AS puis des routeurs dans `intent.json`. Ce schéma **n’est pas limité à 255 routeurs** (contrairement à une séquence du type `1.1.1.1`, `2.2.2.2`, …). La même valeur sert d’adresse **Loopback0** lorsque cette interface est définie. Les CE **sans** loopback dans le JSON utilisent quand même ce router-id pour **OSPF / BGP**.
+```json
+"CE4": {
+    "interfaces": {
+        "Gigabitethernet1/0": { "peer": "PE1", "allowas_in": true },
+        "Gigabitethernet2/0": { "peer": "PE2", "allowas_in": true, "prepend": 2 },
+        "Gigabitethernet3/0": { "ip": "172.16.100.254/24" }
+    }
+}
+```
 
----
-
-## Correspondance avec le sujet NAS (rappel)
-
-| Thème | Réalisation dans ARCnet |
-|--------|-------------------------|
-| Cœur IP (OSPF, loopbacks) | AS fournisseur, loopbacks auto, OSPF area 0 sur liens cœur. |
-| MPLS sur le cœur | `mpls ip` sur interfaces cœur ; à compléter en lab si besoin (LDP explicite selon l’image IOS). |
-| iBGP **VPNv4** PE–PE | Sessions vers loopbacks des routeurs dont le nom commence par `PE`. |
-| VRF / PE–CE **eBGP** | VRF + `address-family ipv4 vrf` + voisin déduit du lien / AS client. |
-| Intent & automatisation | Édition de `intent.json` + exécution du contrôleur. |
-| Évolutions sans reboot | Push incrémental Telnet ; `state.json` pour partie du diff. |
+Le trafic entrant prefere PE1 (AS-path court) ; PE2 sert de backup si le lien primaire tombe.
 
 ---
 
-## Vérifications utiles en démo (IOS)
+## Validation
 
-À adapter aux noms de VRF et d’interfaces du lab.
+La commande `validate` verifie avant tout push :
+
+- Structure JSON (cles `AS`, `routers`, `interfaces`).
+- IGP valide (`OSPF` / `RIP`).
+- `upstream_as` reference un AS existant pour les clients.
+- Chaque `peer` pointe vers un routeur existant.
+- Les VRF referees sur les interfaces sont declarees.
+- Les adresses IP (quand presentes) sont du CIDR valide.
+- Les pools `addressing` sont des reseaux IPv4 valides.
+
+---
+
+## Correspondance avec le sujet NAS
+
+| Phase / theme | Realisation |
+|---------------|-------------|
+| Phase 0 -- Setup OSPF, loopbacks | Oui (allocation auto) |
+| Phase 1 -- MPLS LDP | Oui (`mpls ip`) |
+| Phase 2 -- iBGP VPNv4 | Oui (PE-PE loopback) |
+| Phase 3 -- VRF, eBGP PE-CE | Oui (+ NAT, RIP, allowas-in) |
+| Phase 4.a -- Manageability | Oui (`state.json`, teardown, CLI diff/apply) |
+| Phase 4.b -- Site sharing (multi-RT) | Oui (`import_customers`, VRF Shared) |
+| Phase 4.b -- Ingress TE | Oui (CE4 dual-home + `prepend`) |
+| Phase 4.b -- Internet services | Non implemente |
+| Phase 4.b -- RSVP | Non implemente |
+
+---
+
+## Verifications utiles en demo (IOS)
 
 ```text
 show ip ospf neighbor
@@ -105,15 +204,14 @@ show mpls forwarding-table
 ping vrf <VRF> <adresse>
 ```
 
----
+Ingress TE (CE4) :
 
-## Limitations connues
-
-- Le **teardown** ne retire pas toutes les subtilités possibles d’IOS (voisins BGP modifiés, etc.) : pour un gros changement, repartir d’une config propre ou effacer `state.json` peut être nécessaire.
-- **`generate_configs.py`** (si présent) n’est **pas** aligné sur le schéma actuel de `intent.json` ; le flux supporté est **`sdn_controller.py` + Telnet**.
+```text
+PE2# show ip bgp vpnv4 vrf Shared 172.16.100.0
+```
 
 ---
 
 ## Auteurs
 
-Projet **ARCnet** — équipe du module NAS (INSA / 3TC).
+Projet **ARCnet** -- equipe du module NAS (INSA / 3TC).

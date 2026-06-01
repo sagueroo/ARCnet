@@ -171,30 +171,12 @@
                 "z": 2
             },
             {
-                "drawing_id": "634dc909-28e8-4c37-ab4a-fe6408bbbf4f",
-                "locked": false,
-                "rotation": 0,
-                "svg": "<svg width=\"113\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">IP : 192.168.1.2</text></svg>",
-                "x": -630,
-                "y": -55,
-                "z": 2
-            },
-            {
                 "drawing_id": "00798c05-dd1a-407e-8693-b4f82ee03647",
                 "locked": false,
                 "rotation": 0,
                 "svg": "<svg width=\"170\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">R\u00e9seau : 192.168.2.0/30</text></svg>",
                 "x": 214,
                 "y": -17,
-                "z": 2
-            },
-            {
-                "drawing_id": "011bab94-ef77-4882-a6f9-95c215436a67",
-                "locked": false,
-                "rotation": 0,
-                "svg": "<svg width=\"113\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">IP : 192.168.2.2</text></svg>",
-                "x": 338,
-                "y": -76,
                 "z": 2
             },
             {
@@ -228,7 +210,7 @@
                 "drawing_id": "2d0ac496-ced9-4ed8-9509-2039edc1539a",
                 "locked": false,
                 "rotation": 0,
-                "svg": "<svg width=\"220\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">LAN INTERNE : 192.168.67.0/24</text></svg>",
+                "svg": "<svg width=\"220\" height=\"24\"><text font-family=\"TypeWriter\" font-size=\"10.0\" font-weight=\"bold\" fill=\"#000000\" fill-opacity=\"1.0\">LAN INTERNE : 192.168.69.0/24</text></svg>",
                 "x": 366,
                 "y": -188,
                 "z": 2
@@ -617,6 +599,38 @@
                     }
                 ],
                 "suspend": false
+            },
+            {
+                "filters": {},
+                "link_id": "648b2a52-5950-4e13-9aec-d0f96b43d3a4",
+                "link_style": {},
+                "nodes": [
+                    {
+                        "adapter_number": 2,
+                        "label": {
+                            "rotation": 0,
+                            "style": "font-family: TypeWriter;font-size: 10.0;font-weight: bold;fill: #000000;fill-opacity: 1.0;",
+                            "text": "g2/0",
+                            "x": 67,
+                            "y": 1
+                        },
+                        "node_id": "089fbfcb-29dd-4da8-824c-6ccee75ae275",
+                        "port_number": 0
+                    },
+                    {
+                        "adapter_number": 5,
+                        "label": {
+                            "rotation": 0,
+                            "style": "font-family: TypeWriter;font-size: 10.0;font-weight: bold;fill: #000000;fill-opacity: 1.0;",
+                            "text": "g5/0",
+                            "x": -1,
+                            "y": 42
+                        },
+                        "node_id": "8091fe8c-4345-41b8-a4ed-2c768b48a3b1",
+                        "port_number": 0
+                    }
+                ],
+                "suspend": false
             }
         ],
         "nodes": [
@@ -883,7 +897,7 @@
                     "slot2": "PA-GE",
                     "slot3": "PA-GE",
                     "slot4": "PA-GE",
-                    "slot5": null,
+                    "slot5": "PA-GE",
                     "slot6": null,
                     "sparsemem": true,
                     "system_id": "FTX0945W0MY",
@@ -1344,5 +1358,5 @@
     "type": "topology",
     "variables": null,
     "version": "2.2.55",
-    "zoom": 98
+    "zoom": 58
 }
