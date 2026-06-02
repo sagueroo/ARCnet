@@ -197,6 +197,16 @@ class TestGenerateBuild(unittest.TestCase):
         self.assertIn("mpls ip", pc1)
         self.assertIn("router ospf 1", pc1)
 
+    def test_dual_homed_ce4_internet_via_gateway_pe(self):
+        intent = copy.deepcopy(INTENT)
+        allocate_ips(intent)
+        build = generate_build(intent)
+        ce4 = "\n".join(build["CE4"])
+        pe2 = "\n".join(build["PE2"])
+        self.assertIn("ip route 0.0.0.0 0.0.0.0 192.168.0.18", ce4)
+        self.assertNotIn("neighbor 192.168.0.21 default-originate", pe2)
+        self.assertIn("ip route vrf SopraSteria 0.0.0.0 0.0.0.0 10.200.0.1 global", pe2)
+
 
 class TestUtilities(unittest.TestCase):
 

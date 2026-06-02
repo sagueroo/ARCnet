@@ -170,6 +170,8 @@ Le bloc `addressing` (optionnel) definit des **pools** d'adresses. Quand il est 
 
 Le trafic entrant prefere PE1 (AS-path court) ; PE2 sert de backup si le lien primaire tombe.
 
+**Internet depuis CE4 (dual-home)** : l'acces Internet et le NAT sont sur **PE1** uniquement. Le controleur force `ip route 0.0.0.0 0.0.0.0` vers PE1 sur CE4 et n'envoie pas de defaut BGP depuis PE2 vers CE4 (sinon le ping Internet partait par PE2 sans NAT).
+
 ### Acces Internet (Phase 4.b)
 
 Bloc racine `internet` dans l'intent :

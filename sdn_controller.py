@@ -205,6 +205,35 @@ def apply_internet_link(intent):
     ir_if["ip"] = f"{hosts[1]}/{plen}"
 
 
+def pe_vrf_sessions_for_ce(intent, ce_name):
+    """Liens VRF PE->CE : (pe_name, ce_ip_vu_par_pe, pe_ip_next_hop_cote_ce)."""
+    sessions = []
+    for _, as_info in intent["AS"].items():
+        if not as_info.get("mpls"):
+            continue
+        for pe_name, rinfo in as_info["routers"].items():
+            for ifdata in rinfo.get("interfaces", {}).values():
+                if ifdata.get("peer") == ce_name and ifdata.get("vrf") and ifdata.get("ip"):
+                    sessions.append((pe_name, peer_ip(ifdata), iface_ipv4(ifdata)))
+    return sessions
+
+
+def is_dual_homed_ce(intent, ce_name):
+    return len({s[0] for s in pe_vrf_sessions_for_ce(intent, ce_name)}) >= 2
+
+
+def gateway_pe_ce_next_hop(intent, ce_rinfo):
+    """IP du PE passerelle Internet sur le lien primaire d'un CE dual-home."""
+    inet = get_internet_config(intent)
+    if not inet:
+        return None
+    gw = inet["gateway_pe"]
+    for ifdata in ce_rinfo.get("interfaces", {}).values():
+        if ifdata.get("peer") == gw and ifdata.get("ip"):
+            return peer_ip(ifdata)
+    return None
+
+
 def internet_gateway_next_hop(intent):
     """IP du routeur Internet (next-hop global depuis le PE)."""
     inet = get_internet_config(intent)
@@ -584,9 +613,38 @@ def generate_build(data):
                             "  redistribute connected",
                         ]
                         if ifdata["vrf"] in inet_vrfs:
-                            vrf_cmds.append(f"  neighbor {ce_ip} default-originate")
+                            ce_name = ifdata.get("peer", "")
+                            gw = inet.get("gateway_pe") if inet else None
+                            skip_default = (
+                                gw
+                                and rname != gw
+                                and ce_name
+                                and is_dual_homed_ce(data, ce_name)
+                            )
+                            if not skip_default:
+                                vrf_cmds.append(
+                                    f"  neighbor {ce_ip} default-originate"
+                                )
                         vrf_cmds.append(" exit-address-family")
                         cmds.extend(vrf_cmds)
+
+                if inet and is_pe and rname != inet.get("gateway_pe"):
+                    gw_rid = rids.get(inet["gateway_pe"])
+                    if gw_rid:
+                        for vname in inet.get("vrfs", []):
+                            if vname not in as_info.get("vrfs", {}):
+                                continue
+                            cmds.append(
+                                f"ip route vrf {vname} 0.0.0.0 0.0.0.0 {gw_rid} global"
+                            )
+                            if inet.get("prefix"):
+                                pfx = ipaddress.ip_network(
+                                    inet["prefix"], strict=False
+                                )
+                                cmds.append(
+                                    f"ip route vrf {vname} {pfx.network_address} "
+                                    f"{pfx.netmask} {gw_rid} global"
+                                )
 
                 if inet and rname == inet.get("gateway_pe"):
                     nh = internet_gateway_next_hop(data)
@@ -618,6 +676,11 @@ def generate_build(data):
                             )
             else:
                 pe_as = str(as_info["upstream_as"])
+
+                if inet and is_dual_homed_ce(data, rname):
+                    inet_nh = gateway_pe_ce_next_hop(data, rinfo)
+                    if inet_nh:
+                        cmds.append(f"ip route 0.0.0.0 0.0.0.0 {inet_nh}")
 
                 prepend_maps = {}
                 for ifname, ifdata in interfaces.items():
