@@ -108,8 +108,9 @@ def validate_intent(intent):
             errors.append(f"{prefix}: igp doit etre 'OSPF' ou 'RIP', recu '{igp}'")
 
         is_provider = as_info.get("mpls", False)
+        is_isp = as_info.get("isp", False)
 
-        if not is_provider:
+        if not is_provider and not is_isp:
             up = as_info.get("upstream_as")
             if up is None:
                 errors.append(f"{prefix}: AS client sans 'upstream_as'")
@@ -145,8 +146,79 @@ def validate_intent(intent):
                             f"{prefix} {rname}.{ifname}: vrf '{vrf}' non declaree"
                         )
 
+    inet = intent.get("internet")
+    if inet:
+        pe = inet.get("gateway_pe")
+        if not pe or pe not in all_routers:
+            errors.append("internet.gateway_pe invalide ou inconnu")
+        if not inet.get("interface"):
+            errors.append("internet.interface manquant")
+        ir = inet.get("router")
+        if not ir or ir not in all_routers:
+            errors.append("internet.router invalide ou inconnu")
+        prov = next((i for i in intent["AS"].values() if i.get("mpls")), {})
+        for v in inet.get("vrfs", []):
+            if v not in prov.get("vrfs", {}):
+                errors.append(f"internet.vrfs: vrf '{v}' non declaree")
+
     if errors:
         raise ValueError("Intent invalide:\n  - " + "\n  - ".join(errors))
+
+
+def get_internet_config(intent):
+    return intent.get("internet")
+
+
+def apply_internet_link(intent):
+    """Alloue le /30 PE-Internet depuis internet.link si les IP ne sont pas fixes."""
+    inet = get_internet_config(intent)
+    if not inet:
+        return
+    pe = inet["gateway_pe"]
+    ifname = inet["interface"]
+    ir = inet["router"]
+    link = inet.get("link")
+    if not link:
+        return
+
+    pe_info = None
+    ir_if = None
+    for asn, info in intent["AS"].items():
+        if pe in info.get("routers", {}):
+            pe_info = info["routers"][pe]["interfaces"].get(ifname)
+        if ir in info.get("routers", {}):
+            for iname, idata in info["routers"][ir]["interfaces"].items():
+                if idata.get("peer") == pe:
+                    ir_if = idata
+
+    if not pe_info or not ir_if:
+        return
+    if pe_info.get("ip") and ir_if.get("ip"):
+        return
+
+    net = ipaddress.ip_network(link, strict=False)
+    hosts = list(net.hosts())
+    if len(hosts) < 2:
+        return
+    plen = net.prefixlen
+    pe_info["ip"] = f"{hosts[0]}/{plen}"
+    ir_if["ip"] = f"{hosts[1]}/{plen}"
+
+
+def internet_gateway_next_hop(intent):
+    """IP du routeur Internet (next-hop global depuis le PE)."""
+    inet = get_internet_config(intent)
+    if not inet:
+        return None
+    pe = inet["gateway_pe"]
+    ifname = inet["interface"]
+    ir = inet["router"]
+    pe_if = intent["AS"][_router_to_as_map(intent)[pe]]["routers"][pe]["interfaces"][ifname]
+    ir_asn = _router_to_as_map(intent)[ir]
+    for _, idata in intent["AS"][ir_asn]["routers"][ir]["interfaces"].items():
+        if idata.get("peer") == pe and idata.get("ip"):
+            return str(ipaddress.ip_interface(idata["ip"]).ip)
+    return peer_ip(pe_if)
 
 
 # ── Allocation IP dynamique ─────────────────────────────────
@@ -292,10 +364,58 @@ def faces_provider(intf_data, as_info, intent):
     return p in intent["AS"].get(up, {}).get("routers", {})
 
 
-def is_core_intf(ifname, ifdata, is_provider):
+def is_core_intf(ifname, ifdata, is_provider, intent=None):
     if not is_provider or not ifdata.get("ip"):
         return False
-    return "Loopback" not in ifname and not ifdata.get("vrf")
+    if "Loopback" in ifname or ifdata.get("vrf"):
+        return False
+    inet = get_internet_config(intent) if intent else None
+    if inet and ifdata.get("peer") == inet.get("router"):
+        return False
+    return True
+
+
+def build_isp_router(data, rname, rinfo, as_s):
+    """Routeur Internet (AS ISP) : prefixe public simule + lien vers le PE."""
+    cmds = ["ip cef", "no ipv6 cef"]
+    inet = get_internet_config(data)
+    provider_as = next(k for k, v in data["AS"].items() if v.get("mpls"))
+
+    for ifname, ifdata in rinfo.get("interfaces", {}).items():
+        cmds.append(f"interface {ifname}")
+        if ifdata.get("ip"):
+            cmds.append(
+                f" ip address {iface_ipv4(ifdata)} {cidr_to_netmask(iface_mask(ifdata))}"
+            )
+            cmds.append(" negotiation auto")
+        cmds.append(" no shutdown")
+
+    if inet and inet.get("prefix"):
+        pfx = ipaddress.ip_network(inet["prefix"], strict=False)
+        cmds.append(
+            f"ip route {pfx.network_address} {pfx.netmask} Null0"
+        )
+
+    pe_nh = None
+    for ifdata in rinfo.get("interfaces", {}).values():
+        if ifdata.get("peer") == inet.get("gateway_pe") and ifdata.get("ip"):
+            pe_nh = peer_ip(ifdata)
+            cmds.append(f"ip route 0.0.0.0 0.0.0.0 {pe_nh}")
+            break
+    if pe_nh:
+        cmds.extend([
+            f"router bgp {as_s}",
+            " bgp log-neighbor-changes",
+            f" neighbor {pe_nh} remote-as {provider_as}",
+            f" neighbor {pe_nh} activate",
+        ])
+        if inet.get("prefix"):
+            pfx = ipaddress.ip_network(inet["prefix"], strict=False)
+            cmds.append(
+                f" network {pfx.network_address} mask {pfx.netmask}"
+            )
+
+    return cmds
 
 
 def nat_map_cmds(nat_map):
@@ -363,7 +483,13 @@ def generate_build(data):
         as_s = str(as_num)
 
         for rname, rinfo in as_info["routers"].items():
+            if as_info.get("isp"):
+                build[rname] = build_isp_router(data, rname, rinfo, as_s)
+                continue
+
             cmds = ["ip cef", "no ipv6 cef"]
+            inet = get_internet_config(data)
+            inet_vrfs = set(inet.get("vrfs", [])) if inet else set()
 
             if is_prov and as_info.get("vrfs"):
                 for vname, vspec in as_info["vrfs"].items():
@@ -377,6 +503,8 @@ def generate_build(data):
 
             interfaces = rinfo.get("interfaces", {})
             is_pe = any("vrf" in d for d in interfaces.values())
+            is_inet_gw = bool(inet and rname == inet.get("gateway_pe"))
+            inet_if = inet.get("interface") if is_inet_gw else None
 
             for ifname, ifdata in interfaces.items():
                 cmds.append(f"interface {ifname}")
@@ -384,6 +512,10 @@ def generate_build(data):
                     cmds.append(f" vrf forwarding {ifdata['vrf']}")
                 if ifdata.get("nat"):
                     cmds.append(f" ip nat {ifdata['nat']}")
+                if is_inet_gw and ifname == inet_if:
+                    cmds.append(" ip nat outside")
+                if is_inet_gw and ifdata.get("vrf") in inet_vrfs:
+                    cmds.append(" ip nat inside")
 
                 if "Loopback" in ifname:
                     cmds.append(f" ip address {rids[rname]} {cidr_to_netmask(ifdata.get('mask', '/32'))}")
@@ -392,7 +524,7 @@ def generate_build(data):
                 elif ifdata.get("ip"):
                     cmds.append(f" ip address {iface_ipv4(ifdata)} {cidr_to_netmask(iface_mask(ifdata))}")
                     cmds.append(" negotiation auto")
-                    if is_core_intf(ifname, ifdata, is_prov):
+                    if is_core_intf(ifname, ifdata, is_prov, data):
                         if igp == "OSPF":
                             cmds.append(" ip ospf 1 area 0")
                         cmds.append(" mpls ip")
@@ -445,13 +577,45 @@ def generate_build(data):
                         ce_as = str(ifdata.get("customer_as") or "")
                         if not ce_as:
                             ce_as = router_as_for(data, ifdata.get("peer", "")) or "65000"
-                        cmds.extend([
+                        vrf_cmds = [
                             f" address-family ipv4 vrf {ifdata['vrf']}",
                             f"  neighbor {ce_ip} remote-as {ce_as}",
                             f"  neighbor {ce_ip} activate",
                             "  redistribute connected",
-                            " exit-address-family",
+                        ]
+                        if ifdata["vrf"] in inet_vrfs:
+                            vrf_cmds.append(f"  neighbor {ce_ip} default-originate")
+                        vrf_cmds.append(" exit-address-family")
+                        cmds.extend(vrf_cmds)
+
+                if inet and rname == inet.get("gateway_pe"):
+                    nh = internet_gateway_next_hop(data)
+                    if nh:
+                        cmds.append(f"ip route 0.0.0.0 0.0.0.0 {nh}")
+                        if inet.get("prefix"):
+                            pfx = ipaddress.ip_network(inet["prefix"], strict=False)
+                            cmds.append(
+                                f"ip route {pfx.network_address} {pfx.netmask} {nh}"
+                            )
+                        for vname in inet.get("vrfs", []):
+                            cmds.append(
+                                f"ip route vrf {vname} 0.0.0.0 0.0.0.0 {nh} global"
+                            )
+                            if inet.get("prefix"):
+                                pfx = ipaddress.ip_network(inet["prefix"], strict=False)
+                                cmds.append(
+                                    f"ip route vrf {vname} {pfx.network_address} "
+                                    f"{pfx.netmask} {nh} global"
+                                )
+                        cmds.extend([
+                            "ip access-list standard ARCNET-TO-INET",
+                            " permit any",
                         ])
+                        for vname in inet.get("vrfs", []):
+                            cmds.append(
+                                f"ip nat inside source list ARCNET-TO-INET "
+                                f"interface {inet_if} vrf {vname} overload"
+                            )
             else:
                 pe_as = str(as_info["upstream_as"])
 
@@ -515,6 +679,31 @@ def push_to_router(name, port, commands):
         print(f"  [{name}] ERREUR: {e}")
 
 
+def reset_to_router(name, port):
+    """Efface la config startup et recharge le routeur (meme console GNS3 que apply)."""
+    print(f"  [{name}] Reset (port {port})...")
+    try:
+        tn = telnetlib.Telnet(HOST, port, timeout=10)
+        tn.write(b"\r\n\r\n")
+        time.sleep(1)
+        tn.write(b"enable\r\n")
+        time.sleep(0.3)
+        tn.write(b"write erase\r\n")
+        time.sleep(1)
+        tn.write(b"\r\n")
+        time.sleep(0.5)
+        tn.write(b"reload\r\n")
+        time.sleep(1)
+        tn.write(b"\r\n")
+        time.sleep(0.3)
+        tn.write(b"no\r\n")
+        time.sleep(0.3)
+        tn.close()
+        print(f"  [{name}] OK - erase + reload")
+    except Exception as e:
+        print(f"  [{name}] ERREUR: {e}")
+
+
 # ── Chargement intent + state ───────────────────────────────
 
 
@@ -522,6 +711,7 @@ def load_and_prepare_intent(path="intent.json"):
     with open(path, "r") as f:
         intent = json.load(f)
     validate_intent(intent)
+    apply_internet_link(intent)
     allocate_ips(intent)
     return intent
 
@@ -638,6 +828,33 @@ def cmd_apply(args):
     return 0
 
 
+def cmd_reset(args):
+    """Efface la config de chaque routeur GNS3 (write erase + reload)."""
+    consoles = get_gns3_consoles(GNS3_PROJECT_DIR)
+    if not consoles:
+        print("Aucune console GNS3 trouvee.", file=sys.stderr)
+        return 1
+
+    only = set(args.only.split(",")) if args.only else None
+    targets = sorted(consoles.keys())
+    if only:
+        targets = [r for r in targets if r in only]
+
+    print(
+        f"Reset de {len(targets)} routeur(s) "
+        f"(noms = noeuds Dynamips dans GNS3, comme pour apply)..."
+    )
+    for rname in targets:
+        reset_to_router(rname, consoles[rname])
+
+    if not args.keep_state and os.path.exists("state.json"):
+        os.remove("state.json")
+        print("state.json supprime.")
+
+    print("\nAttendre le reboot complet (~1-2 min), puis : python sdn_controller.py apply")
+    return 0
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="sdn_controller",
@@ -657,6 +874,17 @@ def main():
     apply_p = sub.add_parser("apply", help="Pousser la configuration sur les routeurs")
     apply_p.add_argument("--only", help="Routeurs cibles, separes par des virgules (ex: PE1,CE)")
 
+    reset_p = sub.add_parser(
+        "reset",
+        help="Effacer la config des routeurs (write erase + reload) pour demo",
+    )
+    reset_p.add_argument("--only", help="Routeurs cibles, separes par des virgules (ex: PE1,CE)")
+    reset_p.add_argument(
+        "--keep-state",
+        action="store_true",
+        help="Ne pas supprimer state.json apres le reset",
+    )
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -673,6 +901,10 @@ def main():
         if not hasattr(args, "only"):
             args.only = None
         return cmd_apply(args)
+    elif args.command == "reset":
+        if not hasattr(args, "only"):
+            args.only = None
+        return cmd_reset(args)
     else:
         parser.print_help()
         return 2

@@ -6,6 +6,14 @@
         "customer_pool": "192.168.0.0/22",
         "customer_prefix": 30
     },
+    "internet": {
+        "gateway_pe": "PE1",
+        "interface": "Gigabitethernet5/0",
+        "router": "Internet",
+        "link": "10.50.0.0/30",
+        "prefix": "203.0.113.0/24",
+        "vrfs": ["Arsium", "EuroInfo", "SopraSteria"]
+    },
     "AS": {
         "3215": {
             "igp": "OSPF",
@@ -22,6 +30,7 @@
                         "Gigabitethernet2/0": { "vrf": "Arsium", "peer": "CE" },
                         "Gigabitethernet3/0": { "vrf": "EuroInfo", "peer": "CE2" },
                         "Gigabitethernet4/0": { "vrf": "SopraSteria", "peer": "CE4" },
+                        "Gigabitethernet5/0": { "peer": "Internet" },
                         "Loopback0": {}
                     }
                 },
@@ -47,6 +56,17 @@
                         "Gigabitethernet4/0": { "vrf": "SopraSteria", "peer": "CE5" },
                         "Gigabitethernet5/0": { "vrf": "SopraSteria", "peer": "CE4" },
                         "Loopback0": {}
+                    }
+                }
+            }
+        },
+        "65000": {
+            "isp": true,
+            "routers": {
+                "Internet": {
+                    "interfaces": {
+                        "Gigabitethernet1/0": { "peer": "PE1" },
+                        "Loopback0": { "ip": "203.0.113.1/32" }
                     }
                 }
             }

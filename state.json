@@ -6,6 +6,18 @@
         "customer_pool": "192.168.0.0/22",
         "customer_prefix": 30
     },
+    "internet": {
+        "gateway_pe": "PE1",
+        "interface": "Gigabitethernet5/0",
+        "router": "Internet",
+        "link": "10.50.0.0/30",
+        "prefix": "203.0.113.0/24",
+        "vrfs": [
+            "Arsium",
+            "EuroInfo",
+            "SopraSteria"
+        ]
+    },
     "AS": {
         "3215": {
             "igp": "OSPF",
@@ -23,7 +35,7 @@
                         "206897"
                     ]
                 },
-                "Shared": {
+                "SopraSteria": {
                     "customer_as": "206897",
                     "import_customers": [
                         "102",
@@ -49,9 +61,13 @@
                             "ip": "192.168.0.10/30"
                         },
                         "Gigabitethernet4/0": {
-                            "vrf": "Shared",
+                            "vrf": "SopraSteria",
                             "peer": "CE4",
                             "ip": "192.168.0.18/30"
+                        },
+                        "Gigabitethernet5/0": {
+                            "peer": "Internet",
+                            "ip": "10.50.0.1/30"
                         },
                         "Loopback0": {}
                     }
@@ -99,16 +115,32 @@
                             "ip": "192.168.0.14/30"
                         },
                         "Gigabitethernet4/0": {
-                            "vrf": "Shared",
+                            "vrf": "SopraSteria",
                             "peer": "CE5",
                             "ip": "192.168.0.26/30"
                         },
                         "Gigabitethernet5/0": {
-                            "vrf": "Shared",
+                            "vrf": "SopraSteria",
                             "peer": "CE4",
                             "ip": "192.168.0.22/30"
                         },
                         "Loopback0": {}
+                    }
+                }
+            }
+        },
+        "65000": {
+            "isp": true,
+            "routers": {
+                "Internet": {
+                    "interfaces": {
+                        "Gigabitethernet1/0": {
+                            "peer": "PE1",
+                            "ip": "10.50.0.2/30"
+                        },
+                        "Loopback0": {
+                            "ip": "203.0.113.1/32"
+                        }
                     }
                 }
             }

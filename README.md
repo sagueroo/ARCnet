@@ -10,7 +10,7 @@ Projet de module **NAS** (3TC) -- prolongement logique d'un lab **GNS** (coeur I
 
 **Fichier d'exemple a consulter sur GitHub : [`intent.example.json`](intent.example.json)**
 
-C'est la reference du format d'intention du projet (topologie complete : coeur MPLS, 3 clients, NAT, multihoming Ingress TE). Le controleur utilise par defaut `intent.json` (meme contenu en local) ; vous pouvez pointer vers l'exemple avec `--intent intent.example.json`.
+C'est la reference du format d'intention du projet (topologie complete : coeur MPLS, 3 clients, NAT, hub SopraSteria, Ingress TE, acces Internet). Le controleur utilise par defaut `intent.json` (meme contenu que l'exemple) ; vous pouvez pointer vers l'exemple avec `--intent intent.example.json`.
 
 ---
 
@@ -30,6 +30,7 @@ C'est la reference du format d'intention du projet (topologie complete : coeur M
 | `allowas-in` | CE multi-sites (meme AS annonce par plusieurs PE) |
 | `redistribute connected` (BGP VRF) | Liens PE-CE annonces dans le VPN (retour ping) |
 | Ingress TE (Phase 4.b) | CE dual-home + `prepend` AS-path (lien backup) |
+| Internet (Phase 4.b) | Routeur `Internet`, defaut BGP + NAT VRF sur PE1 (Gi5/0) |
 
 ### Logiciel
 
@@ -49,6 +50,7 @@ C'est la reference du format d'intention du projet (topologie complete : coeur M
 
 - **Python 3** (bibliotheque standard uniquement, pas de `pip`).
 - **GNS3** avec topologie **Dynamips** ; les **noms des routeurs** dans GNS3 doivent correspondre aux cles `routers` de l'intent.
+- Routeur **`Internet`** (AS 65000) cable sur **PE1 GigabitEthernet5/0** (voir bloc `internet` dans l'intent).
 - Repertoire du projet contenant le dossier **`GNS/`** avec le fichier `.gns3` du lab.
 
 ---
@@ -73,6 +75,11 @@ python sdn_controller.py validate --intent intent.example.json
 
 # Pousser sur certains routeurs seulement
 python sdn_controller.py apply --only PE1,CE
+
+# Demo : tout effacer puis reconfigurer
+python sdn_controller.py reset
+# attendre ~1-2 min (reboot)
+python sdn_controller.py apply
 ```
 
 Sans sous-commande, `python sdn_controller.py` equivaut a `apply`.
@@ -94,6 +101,8 @@ python -m unittest test_sdn_controller -v
 | `diff --only PE1,CE` | Idem, filtre sur certains routeurs. |
 | `apply` | Pousse la configuration sur tous les routeurs via Telnet. |
 | `apply --only PE1,CE` | Pousse uniquement sur les routeurs indiques. |
+| `reset` | `write erase` + `reload` sur chaque routeur GNS3 (memes noms que dans le lab). |
+| `reset --only PE1,CE` | Reset partiel. Supprime `state.json` (sauf `--keep-state`). |
 | `--intent fichier.json` | Fichier intent (defaut : `intent.json`, exemple : `intent.example.json`). |
 
 ---
@@ -161,6 +170,36 @@ Le bloc `addressing` (optionnel) definit des **pools** d'adresses. Quand il est 
 
 Le trafic entrant prefere PE1 (AS-path court) ; PE2 sert de backup si le lien primaire tombe.
 
+### Acces Internet (Phase 4.b)
+
+Bloc racine `internet` dans l'intent :
+
+```json
+"internet": {
+    "gateway_pe": "PE1",
+    "interface": "Gigabitethernet5/0",
+    "router": "Internet",
+    "link": "10.50.0.0/30",
+    "prefix": "203.0.113.0/24",
+    "vrfs": ["Arsium", "EuroInfo", "SopraSteria"]
+}
+```
+
+| Element | Role |
+|---------|------|
+| Lien `10.50.0.0/30` | PE1 `10.50.0.1` ↔ Internet `10.50.0.2` (table **globale** du PE) |
+| `203.0.113.0/24` | Prefixe « public » simule (TEST-NET) |
+| `203.0.113.1` | Loopback0 sur le routeur **Internet** (cible de test `ping`) |
+
+Le script configure : route par defaut vers Internet, `default-originate` BGP vers les CE, et **NAT par VRF** (`ip nat inside source … interface Gi5/0 vrf <nom> overload`) pour que le trafic client sorte et revienne correctement.
+
+Test apres `apply` :
+
+```text
+CE# ping 203.0.113.1
+PE1# show ip nat translations
+```
+
 ---
 
 ## Validation
@@ -188,7 +227,7 @@ La commande `validate` verifie avant tout push :
 | Phase 4.a -- Manageability | Oui (`state.json`, teardown, CLI diff/apply) |
 | Phase 4.b -- Site sharing (multi-RT) | Oui (`import_customers`, VRF SopraSteria) |
 | Phase 4.b -- Ingress TE | Oui (CE4 dual-home + `prepend`) |
-| Phase 4.b -- Internet services | Non implemente |
+| Phase 4.b -- Internet services | Oui (`internet` + NAT VRF sur PE1 + routeur ISP) |
 | Phase 4.b -- RSVP | Non implemente |
 
 ---
@@ -208,6 +247,14 @@ Ingress TE (CE4) :
 
 ```text
 PE2# show ip bgp vpnv4 vrf SopraSteria 172.16.100.0
+```
+
+Internet :
+
+```text
+CE# show ip route 0.0.0.0
+CE# ping 203.0.113.1
+PE1# show ip nat translations
 ```
 
 ---

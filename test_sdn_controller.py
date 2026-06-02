@@ -71,7 +71,7 @@ class TestDiscoverLinks(unittest.TestCase):
     def test_finds_all_links(self):
         intent = copy.deepcopy(INTENT)
         links = discover_links(intent)
-        self.assertEqual(len(links), 10)
+        self.assertEqual(len(links), 11)
 
     def test_core_vs_customer(self):
         intent = copy.deepcopy(INTENT)
@@ -79,7 +79,7 @@ class TestDiscoverLinks(unittest.TestCase):
         core = [l for l in links if l["type"] == "core"]
         cust = [l for l in links if l["type"] == "customer"]
         self.assertEqual(len(core), 3)
-        self.assertEqual(len(cust), 7)
+        self.assertEqual(len(cust), 8)
 
     def test_no_loopback_in_links(self):
         intent = copy.deepcopy(INTENT)
@@ -132,7 +132,7 @@ class TestBuildRouterIdMap(unittest.TestCase):
 
     def test_all_routers_present(self):
         ids = build_router_id_map(INTENT)
-        self.assertEqual(len(ids), 10)
+        self.assertEqual(len(ids), 11)
         self.assertIn("PE1", ids)
         self.assertIn("CE5", ids)
 
@@ -167,7 +167,7 @@ class TestGenerateBuild(unittest.TestCase):
         intent = copy.deepcopy(INTENT)
         allocate_ips(intent)
         build = generate_build(intent)
-        self.assertEqual(len(build), 10)
+        self.assertEqual(len(build), 11)
 
     def test_pe_has_vrf_and_bgp(self):
         intent = copy.deepcopy(INTENT)
