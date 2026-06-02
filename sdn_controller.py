@@ -13,6 +13,40 @@ import time
 GNS3_PROJECT_DIR = r"./GNS"
 HOST = "127.0.0.1"
 _LOOPBACK_BASE = int(ipaddress.IPv4Address("10.200.0.0"))
+# Anciens noms VRF a supprimer (renommage Shared -> SopraSteria, etc.)
+LEGACY_VRF_NAMES = ("Shared",)
+
+# Startup-config minimale Dynamips apres reset (hostname = nom du noeud GNS3)
+STARTUP_CONFIG_TEMPLATE = """\
+!
+!
+!
+service timestamps debug datetime msec
+service timestamps log datetime msec
+no service password-encryption
+!
+hostname {hostname}
+!
+ip cef
+no ip domain-lookup
+no ip icmp rate-limit unreachable
+ip tcp synwait 5
+no cdp log mismatch duplex
+!
+line con 0
+ exec-timeout 0 0
+ logging synchronous
+ privilege level 15
+ no login
+line aux 0
+ exec-timeout 0 0
+ logging synchronous
+ privilege level 15
+ no login
+!
+!
+end
+"""
 
 
 # ── Utilitaires IP ──────────────────────────────────────────
@@ -44,13 +78,32 @@ def rip_network(intf_data):
 
 
 def bgp_network_for(intf_data):
+    """Un seul prefixe (compat tests) — preferer bgp_networks_for."""
+    nets = bgp_networks_for(intf_data)
+    return nets[0] if nets else (None, None)
+
+
+def bgp_networks_for(intf_data):
+    """
+    Prefixes BGP a annoncer sur un CE.
+    Si 'announce' (global NAT) et IP LAN sont tous deux presents, annonce les deux :
+    le LAN pour CE2<->CE3, le global pour le hub SopraSteria.
+    """
+    nets = []
+    seen = set()
+    if "ip" in intf_data:
+        local = ipaddress.ip_interface(intf_data["ip"]).network
+        entry = (str(local.network_address), str(local.netmask))
+        if entry not in seen:
+            nets.append(entry)
+            seen.add(entry)
     if "announce" in intf_data:
-        net = ipaddress.ip_network(intf_data["announce"], strict=False)
-    elif "ip" in intf_data:
-        net = ipaddress.ip_interface(intf_data["ip"]).network
-    else:
-        return None, None
-    return str(net.network_address), str(net.netmask)
+        ann = ipaddress.ip_network(intf_data["announce"], strict=False)
+        entry = (str(ann.network_address), str(ann.netmask))
+        if entry not in seen:
+            nets.append(entry)
+            seen.add(entry)
+    return nets
 
 
 def peer_ip(intf_data):
@@ -460,19 +513,83 @@ def nat_map_cmds(nat_map):
 # ── GNS3 ────────────────────────────────────────────────────
 
 
-def get_gns3_consoles(project_dir):
+def get_gns3_nodes(project_dir):
+    """Noeuds Dynamips : {nom: {console, node_id, dynamips_id}}."""
     mapping = {}
     gns3_files = [f for f in os.listdir(project_dir) if f.endswith(".gns3")]
     if not gns3_files:
         return mapping
-    with open(os.path.join(project_dir, gns3_files[0]), "r") as f:
+    with open(os.path.join(project_dir, gns3_files[0]), "r", encoding="utf-8") as f:
         gns3_data = json.load(f)
     for node in gns3_data.get("topology", {}).get("nodes", []):
+        if node.get("node_type") != "dynamips":
+            continue
         name = node.get("name")
-        console = node.get("console")
-        if name and console and node.get("node_type") == "dynamips":
-            mapping[name] = console
+        if not name:
+            continue
+        props = node.get("properties") or {}
+        mapping[name] = {
+            "console": node.get("console"),
+            "node_id": node.get("node_id"),
+            "dynamips_id": props.get("dynamips_id"),
+        }
     return mapping
+
+
+def get_gns3_consoles(project_dir):
+    return {
+        name: info["console"]
+        for name, info in get_gns3_nodes(project_dir).items()
+        if info.get("console")
+    }
+
+
+def _dynamips_configs_dir(project_dir, node_id):
+    return os.path.join(project_dir, "project-files", "dynamips", node_id, "configs")
+
+
+def dynamips_startup_config_paths(project_dir, node_id):
+    cfg_dir = _dynamips_configs_dir(project_dir, node_id)
+    if not os.path.isdir(cfg_dir):
+        return []
+    return [
+        os.path.join(cfg_dir, fname)
+        for fname in os.listdir(cfg_dir)
+        if fname.endswith("_startup-config.cfg")
+    ]
+
+
+def dynamips_private_config_paths(project_dir, node_id):
+    cfg_dir = _dynamips_configs_dir(project_dir, node_id)
+    if not os.path.isdir(cfg_dir):
+        return []
+    return [
+        os.path.join(cfg_dir, fname)
+        for fname in os.listdir(cfg_dir)
+        if fname.endswith("_private-config.cfg")
+    ]
+
+
+def startup_config_from_template(hostname):
+    return STARTUP_CONFIG_TEMPLATE.format(hostname=hostname)
+
+
+def reset_dynamips_saved_configs(project_dir, node_id, hostname):
+    """
+    Reinitialise les .cfg Dynamips : template startup (bon hostname) + private vide.
+    Pris en compte au prochain demarrage du noeud dans GNS3.
+    """
+    cleared = []
+    body = startup_config_from_template(hostname)
+    for path in dynamips_startup_config_paths(project_dir, node_id):
+        with open(path, "w", encoding="ascii", newline="\n") as f:
+            f.write(body)
+        cleared.append(path)
+    for path in dynamips_private_config_paths(project_dir, node_id):
+        with open(path, "w", encoding="ascii") as f:
+            f.write("")
+        cleared.append(path)
+    return cleared
 
 
 # ── Generation des commandes IOS ────────────────────────────
@@ -493,6 +610,12 @@ def generate_teardown(state, intent):
                 if vname not in new_info.get("vrfs", {}):
                     c.append(f"no vrf definition {vname}")
 
+            if new_info.get("mpls") and _is_pe_router(new_r or old_r):
+                current = set(new_info.get("vrfs", {}))
+                for legacy in LEGACY_VRF_NAMES:
+                    if legacy not in current:
+                        c.append(f"no vrf definition {legacy}")
+
             for ifname in old_r.get("interfaces", {}):
                 if ifname not in new_r.get("interfaces", {}):
                     c.extend([f"default interface {ifname}", f"interface {ifname}", " shutdown", " exit"])
@@ -500,6 +623,165 @@ def generate_teardown(state, intent):
             if c:
                 cmds[rname] = c
     return cmds
+
+
+def negate_build_commands(cmds):
+    """Inverse les commandes generees par generate_build (reset sans write erase)."""
+    neg = []
+    seen_bgp = set()
+    seen_vrf = set()
+    seen_acl = set()
+    seen_rmap = set()
+
+    interfaces = []
+    for c in cmds:
+        if c.startswith("interface "):
+            interfaces.append(c.split()[1])
+
+    for ifname in reversed(interfaces):
+        neg.extend([
+            f"default interface {ifname}",
+            f"interface {ifname}",
+            " shutdown",
+            " exit",
+        ])
+
+    for c in reversed(cmds):
+        s = c.strip()
+        if (
+            s.startswith("interface ")
+            or s == "no shutdown"
+            or s.startswith("negotiation ")
+            or (
+                s.startswith("ip ")
+                and not s.startswith("ip route")
+                and not s.startswith("ip nat inside source")
+                and not s.startswith("ip access-list ")
+            )
+            or s == "mpls ip"
+            or s.startswith("vrf forwarding")
+            or s.startswith("address-family")
+            or s.startswith("neighbor")
+            or s.startswith("network ")
+            or s.startswith("redistribute ")
+            or s in ("exit-address-family", "exit")
+            or s.startswith("route-target ")
+            or s == "address-family ipv4"
+            or s == "no ipv6 cef"
+        ):
+            continue
+
+        if s.startswith("router bgp "):
+            asn = s.split()[2]
+            if asn not in seen_bgp:
+                neg.append(f"no router bgp {asn}")
+                seen_bgp.add(asn)
+        elif s.startswith("router ospf "):
+            neg.append("no router ospf 1")
+        elif s.startswith("router rip"):
+            neg.append("no router rip")
+        elif s.startswith("vrf definition "):
+            vname = s.split()[2]
+            if vname not in seen_vrf:
+                neg.append(f"no vrf definition {vname}")
+                seen_vrf.add(vname)
+        elif s.startswith("ip route "):
+            neg.append(f"no {s}")
+        elif s.startswith("ip nat "):
+            neg.append(f"no {s}")
+        elif s.startswith("route-map "):
+            rmap = s.split()[1]
+            if rmap not in seen_rmap:
+                neg.append(f"no route-map {rmap}")
+                seen_rmap.add(rmap)
+        elif s.startswith("ip access-list standard "):
+            acl = s.split()[3]
+            if acl not in seen_acl:
+                neg.append(f"no ip access-list standard {acl}")
+                seen_acl.add(acl)
+        elif s == "ip cef":
+            neg.append("no ip cef")
+
+    return neg
+
+
+def _is_pe_router(rinfo):
+    return any("vrf" in d for d in rinfo.get("interfaces", {}).values())
+
+
+def legacy_vrf_cleanup_cmds(data, rname, aggressive=False, fresh_routing=False):
+    """
+    Supprime les VRF obsoletes (ex. Shared) et libere les RD avant recreate.
+    aggressive=True : reset demo (default interface sur tous les ports).
+    fresh_routing=True : apply sur PE (default ports VRF + no vrf + no router bgp).
+    """
+    cmds = []
+    for asn, as_info in data.get("AS", {}).items():
+        if not as_info.get("mpls"):
+            continue
+        rinfo = as_info.get("routers", {}).get(rname)
+        if not rinfo or not _is_pe_router(rinfo):
+            continue
+        current = set(as_info.get("vrfs", {}).keys())
+        if aggressive:
+            for ifname in rinfo.get("interfaces", {}):
+                cmds.extend([
+                    f"default interface {ifname}",
+                    f"interface {ifname}",
+                    " shutdown",
+                    " exit",
+                ])
+        elif fresh_routing:
+            for ifname, ifdata in rinfo.get("interfaces", {}).items():
+                if ifdata.get("vrf"):
+                    cmds.extend([
+                        f"default interface {ifname}",
+                        f"interface {ifname}",
+                        " exit",
+                    ])
+        for legacy in LEGACY_VRF_NAMES:
+            if legacy not in current:
+                cmds.append(f"no vrf definition {legacy}")
+        if fresh_routing:
+            for vname in current:
+                cmds.append(f"no vrf definition {vname}")
+            cmds.append(f"no router bgp {asn}")
+            if as_info.get("igp") == "OSPF":
+                cmds.append("no router ospf 1")
+        break
+    return cmds
+
+
+def generate_reset_commands(data, aggressive_legacy=True):
+    """Demontage complet pour reset (intent actuel + VRF legacy)."""
+    if not data.get("AS"):
+        return {}
+    build = generate_build(data)
+    reset = {}
+    for rname, cmds in build.items():
+        neg = negate_build_commands(cmds)
+        legacy = legacy_vrf_cleanup_cmds(data, rname, aggressive=aggressive_legacy)
+        reset[rname] = legacy + neg
+    return reset
+
+
+def scan_configs_for_legacy_vrf(project_dir, names):
+    """Avertit si des startup-config Dynamips contiennent encore une VRF legacy."""
+    hits = []
+    for rname, info in names.items():
+        node_id = info.get("node_id")
+        if not node_id:
+            continue
+        for path in dynamips_startup_config_paths(project_dir, node_id):
+            try:
+                with open(path, encoding="utf-8", errors="ignore") as f:
+                    text = f.read()
+            except OSError:
+                continue
+            for legacy in LEGACY_VRF_NAMES:
+                if legacy in text:
+                    hits.append((rname, os.path.basename(path), legacy))
+    return hits
 
 
 def generate_build(data):
@@ -519,6 +801,13 @@ def generate_build(data):
             cmds = ["ip cef", "no ipv6 cef"]
             inet = get_internet_config(data)
             inet_vrfs = set(inet.get("vrfs", [])) if inet else set()
+            interfaces = rinfo.get("interfaces", {})
+            is_pe = _is_pe_router(rinfo)
+
+            if is_pe:
+                cmds = legacy_vrf_cleanup_cmds(
+                    data, rname, aggressive=False, fresh_routing=True
+                ) + cmds
 
             if is_prov and as_info.get("vrfs"):
                 for vname, vspec in as_info["vrfs"].items():
@@ -529,9 +818,6 @@ def generate_build(data):
                     for rt in v["rt_import"]:
                         cmds.append(f"  route-target import {rt}")
                     cmds.append(" exit-address-family")
-
-            interfaces = rinfo.get("interfaces", {})
-            is_pe = any("vrf" in d for d in interfaces.values())
             is_inet_gw = bool(inet and rname == inet.get("gateway_pe"))
             inet_if = inet.get("interface") if is_inet_gw else None
 
@@ -587,16 +873,24 @@ def generate_build(data):
             if is_prov:
                 cmds.extend([f"router bgp {as_s}", f" bgp router-id {rid}", " bgp log-neighbor-changes"])
                 if is_pe:
-                    for other, orid in rids.items():
-                        if other != rname and other.startswith("PE"):
+                    pe_neighbors = [
+                        orid
+                        for other, orid in rids.items()
+                        if other != rname and other.startswith("PE")
+                    ]
+                    for orid in pe_neighbors:
+                        cmds.extend([
+                            f" neighbor {orid} remote-as {as_s}",
+                            f" neighbor {orid} update-source Loopback0",
+                        ])
+                    if pe_neighbors:
+                        cmds.append(" address-family vpnv4")
+                        for orid in pe_neighbors:
                             cmds.extend([
-                                f" neighbor {orid} remote-as {as_s}",
-                                f" neighbor {orid} update-source Loopback0",
-                                " address-family vpnv4",
                                 f"  neighbor {orid} activate",
                                 f"  neighbor {orid} send-community extended",
-                                " exit-address-family",
                             ])
+                        cmds.append(" exit-address-family")
                     for ifname, ifdata in interfaces.items():
                         if "vrf" not in ifdata or "ip" not in ifdata:
                             continue
@@ -701,8 +995,7 @@ def generate_build(data):
                     if not ifdata.get("ip"):
                         continue
                     if not faces_provider(ifdata, as_info, data):
-                        prefix, mask = bgp_network_for(ifdata)
-                        if prefix:
+                        for prefix, mask in bgp_networks_for(ifdata):
                             cmds.append(f"  network {prefix} mask {mask}")
                     else:
                         pe = peer_ip(ifdata)
@@ -721,50 +1014,86 @@ def generate_build(data):
 
 # ── Push Telnet ─────────────────────────────────────────────
 
+_TELNET_SLOW_PREFIXES = (
+    "router bgp",
+    "address-family",
+    "vrf definition",
+    "  neighbor",
+    "  redistribute",
+    "ip route vrf",
+    "ip nat inside",
+    "no router bgp",
+    "no vrf definition",
+    "default interface",
+)
+
+
+def _telnet_send_line(tn, cmd):
+    """Envoie une ligne IOS et attend le prompt (evite commandes tronquees)."""
+    tn.write(cmd.encode("ascii") + b"\r\n")
+    delay = 0.06
+    stripped = cmd.strip()
+    if any(stripped.startswith(p) for p in _TELNET_SLOW_PREFIXES):
+        delay = 0.18
+    time.sleep(delay)
+    try:
+        tn.read_until(b"#", timeout=8)
+    except EOFError:
+        pass
+
+
+def _telnet_session(port, timeout=10):
+    tn = telnetlib.Telnet(HOST, port, timeout=timeout)
+    tn.write(b"\r\n\r\n")
+    time.sleep(0.8)
+    tn.write(b"enable\r\n")
+    time.sleep(0.4)
+    try:
+        tn.read_until(b"#", timeout=5)
+    except EOFError:
+        pass
+    tn.write(b"configure terminal\r\n")
+    time.sleep(0.4)
+    try:
+        tn.read_until(b"#", timeout=5)
+    except EOFError:
+        pass
+    return tn
+
 
 def push_to_router(name, port, commands):
     print(f"  [{name}] Connexion sur port {port}...")
     try:
-        tn = telnetlib.Telnet(HOST, port, timeout=5)
-        tn.write(b"\r\n\r\n")
-        time.sleep(1)
-        tn.write(b"configure terminal\r\n")
-        time.sleep(0.5)
+        tn = _telnet_session(port)
         for cmd in commands:
-            tn.write(cmd.encode("ascii") + b"\r\n")
-            time.sleep(0.02)
-        tn.write(b"end\r\n")
+            _telnet_send_line(tn, cmd)
+        _telnet_send_line(tn, "end")
         tn.write(b"write memory\r\n")
-        time.sleep(1)
+        time.sleep(1.5)
+        try:
+            tn.read_until(b"#", timeout=10)
+        except EOFError:
+            pass
         tn.close()
         print(f"  [{name}] OK - {len(commands)} commandes injectees")
     except Exception as e:
         print(f"  [{name}] ERREUR: {e}")
 
 
-def reset_to_router(name, port):
-    """Efface la config startup et recharge le routeur (meme console GNS3 que apply)."""
-    print(f"  [{name}] Reset (port {port})...")
+def push_reset_to_router(name, port, commands):
+    """Envoie les commandes de demontage (no / default interface) en Telnet."""
+    if not commands:
+        return
+    print(f"  [{name}] Demontage IOS ({len(commands)} cmd)...")
     try:
-        tn = telnetlib.Telnet(HOST, port, timeout=10)
-        tn.write(b"\r\n\r\n")
-        time.sleep(1)
-        tn.write(b"enable\r\n")
-        time.sleep(0.3)
-        tn.write(b"write erase\r\n")
-        time.sleep(1)
-        tn.write(b"\r\n")
-        time.sleep(0.5)
-        tn.write(b"reload\r\n")
-        time.sleep(1)
-        tn.write(b"\r\n")
-        time.sleep(0.3)
-        tn.write(b"no\r\n")
-        time.sleep(0.3)
+        tn = _telnet_session(port, timeout=15)
+        for cmd in commands:
+            _telnet_send_line(tn, cmd)
+        _telnet_send_line(tn, "end")
         tn.close()
-        print(f"  [{name}] OK - erase + reload")
+        print(f"  [{name}] OK - demontage Telnet")
     except Exception as e:
-        print(f"  [{name}] ERREUR: {e}")
+        print(f"  [{name}] ERREUR Telnet: {e}")
 
 
 # ── Chargement intent + state ───────────────────────────────
@@ -892,29 +1221,70 @@ def cmd_apply(args):
 
 
 def cmd_reset(args):
-    """Efface la config de chaque routeur GNS3 (write erase + reload)."""
-    consoles = get_gns3_consoles(GNS3_PROJECT_DIR)
-    if not consoles:
-        print("Aucune console GNS3 trouvee.", file=sys.stderr)
+    """Reset GNS3 : demontage IOS (no ...) + vidage des startup-config Dynamips."""
+    try:
+        intent = load_and_prepare_intent(args.intent)
+    except ValueError as e:
+        print(f"ERREUR\n{e}", file=sys.stderr)
+        return 1
+
+    nodes = get_gns3_nodes(GNS3_PROJECT_DIR)
+    if not nodes:
+        print("Aucun noeud Dynamips trouve dans GNS3.", file=sys.stderr)
         return 1
 
     only = set(args.only.split(",")) if args.only else None
-    targets = sorted(consoles.keys())
+    targets = sorted(nodes.keys())
     if only:
         targets = [r for r in targets if r in only]
 
-    print(
-        f"Reset de {len(targets)} routeur(s) "
-        f"(noms = noeuds Dynamips dans GNS3, comme pour apply)..."
-    )
+    teardown = generate_reset_commands(intent)
+    print("1. Demontage IOS (intent actuel + suppression VRF legacy ex. Shared)...")
+
     for rname in targets:
-        reset_to_router(rname, consoles[rname])
+        console = nodes[rname].get("console")
+        cmds = teardown.get(rname, [])
+        if console and cmds and not args.files_only:
+            push_reset_to_router(rname, console, cmds)
+        elif console and not cmds and not args.files_only:
+            print(f"  [{rname}] (rien a demonter en Telnet)")
+
+    print("2. Reinitialisation startup-config Dynamips (template + hostname)...")
+    for rname in targets:
+        node_id = nodes[rname].get("node_id")
+        if not node_id:
+            print(f"  [{rname}] SKIP - node_id inconnu")
+            continue
+        if args.telnet_only:
+            continue
+        cleared = reset_dynamips_saved_configs(GNS3_PROJECT_DIR, node_id, rname)
+        if cleared:
+            print(f"  [{rname}] template startup (hostname {rname}), private vide")
+        else:
+            print(
+                f"  [{rname}] aucun .cfg trouve "
+                f"(project-files/dynamips/{node_id}/configs/)"
+            )
 
     if not args.keep_state and os.path.exists("state.json"):
         os.remove("state.json")
         print("state.json supprime.")
 
-    print("\nAttendre le reboot complet (~1-2 min), puis : python sdn_controller.py apply")
+    stale = scan_configs_for_legacy_vrf(GNS3_PROJECT_DIR, nodes)
+    if stale:
+        print(
+            "\nATTENTION : 'Shared' (ou autre VRF legacy) encore dans des .cfg "
+            "sur disque :"
+        )
+        for rname, fname, legacy in stale:
+            print(f"  - {rname} / {fname} (contient {legacy})")
+        print("  -> Stop/Start obligatoire dans GNS3 apres reset.")
+
+    print(
+        "\n3. Dans GNS3 : arreter puis redemarrer TOUS les noeuds concernes "
+        "(sinon l'ancienne config reste en RAM / startup)."
+    )
+    print("   Puis : python sdn_controller.py apply")
     return 0
 
 
@@ -939,13 +1309,23 @@ def main():
 
     reset_p = sub.add_parser(
         "reset",
-        help="Effacer la config des routeurs (write erase + reload) pour demo",
+        help="Reset demo : demontage IOS + vidage des .cfg Dynamips (GNS3)",
     )
     reset_p.add_argument("--only", help="Routeurs cibles, separes par des virgules (ex: PE1,CE)")
     reset_p.add_argument(
         "--keep-state",
         action="store_true",
         help="Ne pas supprimer state.json apres le reset",
+    )
+    reset_p.add_argument(
+        "--files-only",
+        action="store_true",
+        help="Vider seulement les startup-config Dynamips (pas de Telnet)",
+    )
+    reset_p.add_argument(
+        "--telnet-only",
+        action="store_true",
+        help="Demontage Telnet seulement (ne pas toucher aux .cfg)",
     )
 
     args = parser.parse_args()

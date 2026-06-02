@@ -12,9 +12,13 @@ from sdn_controller import (
     build_router_id_map,
     expand_vrf,
     generate_build,
+    generate_reset_commands,
+    negate_build_commands,
+    bgp_networks_for,
     peer_ip,
     cidr_to_netmask,
     nat_map_cmds,
+    startup_config_from_template,
 )
 
 INTENT = json.load(open("intent.json"))
@@ -196,6 +200,41 @@ class TestGenerateBuild(unittest.TestCase):
         self.assertNotIn("address-family vpnv4", pc1)
         self.assertIn("mpls ip", pc1)
         self.assertIn("router ospf 1", pc1)
+
+    def test_reset_negates_build(self):
+        intent = copy.deepcopy(INTENT)
+        allocate_ips(intent)
+        build = generate_build(intent)
+        reset = generate_reset_commands(intent)
+        pe1_build = "\n".join(build["PE1"])
+        pe1_reset = "\n".join(reset["PE1"])
+        self.assertIn("router bgp 3215", pe1_build)
+        self.assertIn("no router bgp 3215", pe1_reset)
+        self.assertIn("no vrf definition Arsium", pe1_reset)
+        self.assertIn("default interface Gigabitethernet1/0", pe1_reset)
+
+    def test_bgp_networks_announce_and_lan(self):
+        ifdata = {
+            "ip": "192.168.67.254/24",
+            "announce": "10.2.67.0/24",
+        }
+        nets = bgp_networks_for(ifdata)
+        self.assertEqual(len(nets), 2)
+        self.assertIn(("192.168.67.0", "255.255.255.0"), nets)
+        self.assertIn(("10.2.67.0", "255.255.255.0"), nets)
+
+    def test_startup_template_hostname(self):
+        cfg = startup_config_from_template("PE1")
+        self.assertIn("hostname PE1", cfg)
+        self.assertNotIn("hostname R1", cfg)
+        self.assertTrue(cfg.strip().endswith("end"))
+
+    def test_apply_removes_legacy_shared_vrf(self):
+        intent = copy.deepcopy(INTENT)
+        allocate_ips(intent)
+        pe1 = "\n".join(generate_build(intent)["PE1"])
+        self.assertIn("no vrf definition Shared", pe1)
+        self.assertIn("vrf definition SopraSteria", pe1)
 
     def test_dual_homed_ce4_internet_via_gateway_pe(self):
         intent = copy.deepcopy(INTENT)

@@ -17,7 +17,7 @@ python sdn_controller.py validate
 python sdn_controller.py diff
 python sdn_controller.py apply
 python sdn_controller.py apply --only PE1,CE4
-python sdn_controller.py reset    # puis apply apres reboot (~1-2 min)
+python sdn_controller.py reset    # demontage IOS + vider .cfg Dynamips, puis Stop/Start GNS3
 python -m unittest test_sdn_controller -v
 ```
 
@@ -26,7 +26,7 @@ python -m unittest test_sdn_controller -v
 | `validate` | Controle l'intent, affiche router-id et liens |
 | `diff` | Affiche les commandes (teardown + build), sans push |
 | `apply` | Push Telnet sur tous les routeurs (`state.json` cree) |
-| `reset` | `write erase` + reload (efface `state.json` sauf `--keep-state`) |
+| `reset` | Demontage IOS + startup-config template (hostname = nom noeud) ; **Stop/Start** |
 | `--intent`, `--only` | Fichier intent / sous-ensemble de routeurs |
 
 Sans argument : `python sdn_controller.py` = `apply`.
@@ -59,7 +59,7 @@ Sans argument : `python sdn_controller.py` = `apply`.
 | `intent.json` | Intent local (defaut) |
 | `sdn_controller.py` | Controleur |
 | `state.json` | Dernier apply (genere, non versionne) |
-| `test_sdn_controller.py` | 28 tests unitaires |
+| `test_sdn_controller.py` | 29 tests unitaires |
 | `GNS/` | Projet GNS3 |
 
 ---
