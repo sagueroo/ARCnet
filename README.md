@@ -1,266 +1,95 @@
 # ARCnet
 
-Automatisation du provisionnement d'un reseau **BGP / MPLS L3VPN** a partir d'un fichier d'**intention** JSON. Le controleur genere des commandes Cisco IOS et les applique en **Telnet** sur les routeurs GNS3, sans rechargement des noeuds.
+Provisionnement **BGP / MPLS L3VPN** depuis un intent JSON : validation, allocation IP, commandes IOS, push **Telnet** sur GNS3 (sans reload des noeuds).
 
-Projet de module **NAS** (3TC) -- prolongement logique d'un lab **GNS** (coeur IP) vers **MPLS, VPNv4, VRF et PE-CE**.
+Projet **NAS** (3TC) — lab GNS etendu (MPLS, VPNv4, VRF, PE-CE, Internet simule).
 
----
-
-## Fichier d'entree (intent)
-
-**Fichier d'exemple a consulter sur GitHub : [`intent.example.json`](intent.example.json)**
-
-C'est la reference du format d'intention du projet (topologie complete : coeur MPLS, 3 clients, NAT, hub SopraSteria, Ingress TE, acces Internet). Le controleur utilise par defaut `intent.json` (meme contenu que l'exemple) ; vous pouvez pointer vers l'exemple avec `--intent intent.example.json`.
+**Intent de reference :** [`intent.example.json`](intent.example.json) (copie locale : `intent.json`).
 
 ---
 
-## Fonctionnalites
+## Demarrage
 
-### Reseau (sujet NAS)
-
-| Fonctionnalite | Description |
-|----------------|-------------|
-| Coeur OSPF | PE1 -- PC1 -- PC2 -- PE2, loopbacks, area 0 |
-| MPLS / LDP | `mpls ip` sur les liens coeur |
-| iBGP VPNv4 | Sessions PE-PE via loopbacks |
-| VRF L3VPN | RD/RT automatiques, eBGP PE-CE par VRF |
-| Multi-RT / partage | VRF `SopraSteria` avec `import_customers` |
-| NAT client | `nat_map` (NAT statique reseau + route Null0) |
-| RIP / OSPF client | IGP configurable par AS client |
-| `allowas-in` | CE multi-sites (meme AS annonce par plusieurs PE) |
-| `redistribute connected` (BGP VRF) | Liens PE-CE annonces dans le VPN (retour ping) |
-| Ingress TE (Phase 4.b) | CE dual-home + `prepend` AS-path (lien backup) |
-| Internet (Phase 4.b) | Routeur `Internet`, defaut BGP + NAT VRF sur PE1 (Gi5/0) |
-
-### Logiciel
-
-| Fonctionnalite | Description |
-|----------------|-------------|
-| Intent JSON simplifie | Peers, VRF, pools -- peu d'IPs en dur |
-| Allocation IP dynamique | Pools `addressing` + override manuel par interface |
-| Validation d'intent | Erreurs claires avant push (`validate`) |
-| CLI | `validate`, `diff`, `apply`, `--only`, `--intent` |
-| Mises a jour incrementales | `state.json` + teardown (add / delete / update) |
-| Router-ID uniques | Pool loopback (`10.200.0.x`), scalable |
-| Tests unitaires | `test_sdn_controller.py` (27 tests) |
-
----
-
-## Prerequis
-
-- **Python 3** (bibliotheque standard uniquement, pas de `pip`).
-- **GNS3** avec topologie **Dynamips** ; les **noms des routeurs** dans GNS3 doivent correspondre aux cles `routers` de l'intent.
-- Routeur **`Internet`** (AS 65000) cable sur **PE1 GigabitEthernet5/0** (voir bloc `internet` dans l'intent).
-- Repertoire du projet contenant le dossier **`GNS/`** avec le fichier `.gns3` du lab.
-
----
-
-## Demarrage rapide
-
-1. Ouvrir le projet dans GNS3 et **demarrer** tous les routeurs.
-2. Depuis la racine du depot :
+**Prerequis :** Python 3 (stdlib), GNS3 Dynamips, noms de routeurs = cles `routers` de l'intent, routeur **`Internet`** sur **PE1 Gi5/0**, dossier `GNS/`.
 
 ```bash
-# Valider l'intent (pas de push)
 python sdn_controller.py validate
-
-# Voir les commandes qui seraient envoyees
 python sdn_controller.py diff
-
-# Pousser la config sur tous les routeurs
 python sdn_controller.py apply
-
-# Utiliser le fichier d'exemple officiel
-python sdn_controller.py validate --intent intent.example.json
-
-# Pousser sur certains routeurs seulement
-python sdn_controller.py apply --only PE1,CE
-
-# Demo : tout effacer puis reconfigurer
-python sdn_controller.py reset
-# attendre ~1-2 min (reboot)
-python sdn_controller.py apply
-```
-
-Sans sous-commande, `python sdn_controller.py` equivaut a `apply`.
-
-### Tests
-
-```bash
+python sdn_controller.py apply --only PE1,CE4
+python sdn_controller.py reset    # puis apply apres reboot (~1-2 min)
 python -m unittest test_sdn_controller -v
 ```
 
----
+| Commande | Role |
+|----------|------|
+| `validate` | Controle l'intent, affiche router-id et liens |
+| `diff` | Affiche les commandes (teardown + build), sans push |
+| `apply` | Push Telnet sur tous les routeurs (`state.json` cree) |
+| `reset` | `write erase` + reload (efface `state.json` sauf `--keep-state`) |
+| `--intent`, `--only` | Fichier intent / sous-ensemble de routeurs |
 
-## Sous-commandes CLI
-
-| Commande | Description |
-|----------|-------------|
-| `validate` | Verifie la coherence de l'intent, affiche les router-id et les liens detectes. |
-| `diff` | Genere et affiche les commandes IOS (teardown + build) sans toucher aux routeurs. |
-| `diff --only PE1,CE` | Idem, filtre sur certains routeurs. |
-| `apply` | Pousse la configuration sur tous les routeurs via Telnet. |
-| `apply --only PE1,CE` | Pousse uniquement sur les routeurs indiques. |
-| `reset` | `write erase` + `reload` sur chaque routeur GNS3 (memes noms que dans le lab). |
-| `reset --only PE1,CE` | Reset partiel. Supprime `state.json` (sauf `--keep-state`). |
-| `--intent fichier.json` | Fichier intent (defaut : `intent.json`, exemple : `intent.example.json`). |
+Sans argument : `python sdn_controller.py` = `apply`.
 
 ---
 
-## Fichiers principaux
+## Intent (resume)
+
+| Bloc | Contenu |
+|------|---------|
+| `addressing` | Pools loopback / coeur / PE-CE ; `ip` manuel = override |
+| `AS` / `3215` | Coeur OSPF, MPLS, VRF, PE-CE BGP, `import_customers` (hub SopraSteria) |
+| `AS` / clients | `upstream_as`, `nat_map`, `prepend`, `allowas_in`, IGP RIP/OSPF |
+| `internet` | PE1 Gi5/0 ↔ `Internet` (AS 65000), prefixe `203.0.113.0/24`, test `ping 203.0.113.1` |
+
+**NAT :**
+- **CE / CE2** — `nat_map` : LAN `192.168.67.0/24` → `10.1.x` / `10.2.x` (hub SopraSteria, pas Internet).
+- **Internet** — NAT **overload par VRF sur PE1** (Gi5/0 outside, interfaces CE en inside).
+- **CE4** — pas de `nat_map` (LAN `172.16.100.0/24`). Dual-home PE1+PE2 : Internet **uniquement via PE1** (defaut statique sur CE4, pas de defaut BGP PE2→CE4).
+
+**CE4 Ingress TE :** `prepend: 2` sur le lien PE2 ; trafic entrant prefere PE1.
+
+---
+
+## Fichiers
 
 | Fichier | Role |
 |---------|------|
-| **`intent.example.json`** | **Fichier d'entree d'exemple** (reference GitHub). |
-| `intent.json` | Intent utilise en local par defaut. |
-| `sdn_controller.py` | Validation + allocation IP + generation IOS + push Telnet + diff. |
-| `state.json` | Memoire du dernier deploiement (genere par `apply`, non versionne). |
-| `test_sdn_controller.py` | Tests unitaires. |
-| `GNS/` | Projet GNS3 (topologie, configs Dynamips). |
+| `intent.example.json` | Reference versionnee |
+| `intent.json` | Intent local (defaut) |
+| `sdn_controller.py` | Controleur |
+| `state.json` | Dernier apply (genere, non versionne) |
+| `test_sdn_controller.py` | 28 tests unitaires |
+| `GNS/` | Projet GNS3 |
 
 ---
 
-## Modele d'intention (`intent.json` / `intent.example.json`)
-
-### Allocation IP dynamique
-
-Le bloc `addressing` (optionnel) definit des **pools** d'adresses. Quand il est present, les interfaces P2P **sans** champ `ip` recoivent une adresse automatiquement :
-
-```json
-"addressing": {
-    "loopback_pool": "10.200.0.0/24",
-    "core_pool": "10.0.10.0/24",
-    "core_prefix": 30,
-    "customer_pool": "192.168.0.0/22",
-    "customer_prefix": 30
-}
-```
-
-- **`loopback_pool`** : pool pour les router-id / Loopback0 (1 adresse par routeur).
-- **`core_pool` + `core_prefix`** : sous-reseaux pour les liens P2P du coeur (PE-P, P-P).
-- **`customer_pool` + `customer_prefix`** : sous-reseaux pour les liens PE-CE.
-
-**Override manuel** : si un champ `"ip": "x.x.x.x/n"` est present sur une interface, il est conserve tel quel. Le pair deduit son adresse depuis le meme sous-reseau.
-
-### Fournisseur (coeur MPLS)
-
-- `igp` : `"OSPF"` ou `"RIP"`.
-- `mpls` : `true` active OSPF + `mpls ip` sur les liens coeur.
-- `vrfs` : dictionnaire **nom VRF** -> `{ "customer_as": "...", "import_customers": [...] }`.
-- `routers` : interfaces avec `peer` (nom du voisin), `vrf` optionnel, `Loopback0: {}`.
-
-### Clients (CE)
-
-- `upstream_as` : AS du fournisseur.
-- `nat_map` (optionnel) : `{ "local": "192.168.x.0/24", "global": "10.x.x.0/24" }`.
-- Interfaces : `peer` vers le PE, `nat`, `allowas_in`, `announce` (prefixe BGP si different du LAN).
-- **`prepend`** (optionnel) : nombre de repetitions de l'AS local sur une session eBGP (Ingress TE, lien backup).
-
-### Exemple Ingress TE (CE4 dual-home)
-
-```json
-"CE4": {
-    "interfaces": {
-        "Gigabitethernet1/0": { "peer": "PE1", "allowas_in": true },
-        "Gigabitethernet2/0": { "peer": "PE2", "allowas_in": true, "prepend": 2 },
-        "Gigabitethernet3/0": { "ip": "172.16.100.254/24" }
-    }
-}
-```
-
-Le trafic entrant prefere PE1 (AS-path court) ; PE2 sert de backup si le lien primaire tombe.
-
-**Internet depuis CE4 (dual-home)** : l'acces Internet et le NAT sont sur **PE1** uniquement. Le controleur force `ip route 0.0.0.0 0.0.0.0` vers PE1 sur CE4 et n'envoie pas de defaut BGP depuis PE2 vers CE4 (sinon le ping Internet partait par PE2 sans NAT).
-
-### Acces Internet (Phase 4.b)
-
-Bloc racine `internet` dans l'intent :
-
-```json
-"internet": {
-    "gateway_pe": "PE1",
-    "interface": "Gigabitethernet5/0",
-    "router": "Internet",
-    "link": "10.50.0.0/30",
-    "prefix": "203.0.113.0/24",
-    "vrfs": ["Arsium", "EuroInfo", "SopraSteria"]
-}
-```
-
-| Element | Role |
-|---------|------|
-| Lien `10.50.0.0/30` | PE1 `10.50.0.1` ↔ Internet `10.50.0.2` (table **globale** du PE) |
-| `203.0.113.0/24` | Prefixe « public » simule (TEST-NET) |
-| `203.0.113.1` | Loopback0 sur le routeur **Internet** (cible de test `ping`) |
-
-Le script configure : route par defaut vers Internet, `default-originate` BGP vers les CE, et **NAT par VRF** (`ip nat inside source … interface Gi5/0 vrf <nom> overload`) pour que le trafic client sorte et revienne correctement.
-
-Test apres `apply` :
-
-```text
-CE# ping 203.0.113.1
-PE1# show ip nat translations
-```
-
----
-
-## Validation
-
-La commande `validate` verifie avant tout push :
-
-- Structure JSON (cles `AS`, `routers`, `interfaces`).
-- IGP valide (`OSPF` / `RIP`).
-- `upstream_as` reference un AS existant pour les clients.
-- Chaque `peer` pointe vers un routeur existant.
-- Les VRF referees sur les interfaces sont declarees.
-- Les adresses IP (quand presentes) sont du CIDR valide.
-- Les pools `addressing` sont des reseaux IPv4 valides.
-
----
-
-## Correspondance avec le sujet NAS
-
-| Phase / theme | Realisation |
-|---------------|-------------|
-| Phase 0 -- Setup OSPF, loopbacks | Oui (allocation auto) |
-| Phase 1 -- MPLS LDP | Oui (`mpls ip`) |
-| Phase 2 -- iBGP VPNv4 | Oui (PE-PE loopback) |
-| Phase 3 -- VRF, eBGP PE-CE | Oui (+ NAT, RIP, allowas-in) |
-| Phase 4.a -- Manageability | Oui (`state.json`, teardown, CLI diff/apply) |
-| Phase 4.b -- Site sharing (multi-RT) | Oui (`import_customers`, VRF SopraSteria) |
-| Phase 4.b -- Ingress TE | Oui (CE4 dual-home + `prepend`) |
-| Phase 4.b -- Internet services | Oui (`internet` + NAT VRF sur PE1 + routeur ISP) |
-| Phase 4.b -- RSVP | Non implemente |
-
----
-
-## Verifications utiles en demo (IOS)
+## Verifs demo (IOS)
 
 ```text
 show ip ospf neighbor
-show ip bgp summary
 show ip bgp vpnv4 all summary
 show ip route vrf <VRF>
-show mpls forwarding-table
-ping vrf <VRF> <adresse>
-```
-
-Ingress TE (CE4) :
-
-```text
-PE2# show ip bgp vpnv4 vrf SopraSteria 172.16.100.0
-```
-
-Internet :
-
-```text
-CE# show ip route 0.0.0.0
+ping vrf Arsium 10.2.67.1
 CE# ping 203.0.113.1
 PE1# show ip nat translations
 ```
+
+---
+
+## Sujet NAS (synthese)
+
+| Theme | Statut |
+|-------|--------|
+| OSPF, MPLS LDP, VPNv4, VRF PE-CE | Oui |
+| Multi-RT / hub SopraSteria, NAT client | Oui |
+| Manageability (`validate`, `diff`, `apply`, `state.json`) | Oui |
+| Ingress TE (CE4) | Oui |
+| Internet (NAT VRF PE1) | Oui |
+| RSVP | Non |
 
 ---
 
 ## Auteurs
 
-Projet **ARCnet** -- equipe du module NAS (INSA / 3TC).
+Mèjdi, Hugo, Marc et Mehdi — projet ARCnet, module NAS (INSA / 3TC).
